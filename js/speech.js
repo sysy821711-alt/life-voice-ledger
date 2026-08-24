@@ -13,7 +13,6 @@ const EXPENSE_CATEGORY_KEYWORDS = {
 
 // 依此順序比對：越具體、越不易與其他類別的字混淆的類別排越前面
 const EXPENSE_MATCH_ORDER = ['居住', '醫療', '教育', '交通', '娛樂', '人情', '餐飲', '購物'];
-const EXPENSE_CATEGORIES = ['餐飲', '交通', '購物', '居住', '娛樂', '醫療', '教育', '人情', '其他'];
 
 const INCOME_CATEGORY_KEYWORDS = {
   '薪資': ['薪水', '薪資', '工資', '月薪', '薪水入帳'],
@@ -22,7 +21,6 @@ const INCOME_CATEGORY_KEYWORDS = {
   '退款': ['退款', '退費', '退錢', '退貨']
 };
 const INCOME_MATCH_ORDER = ['薪資', '獎金', '投資', '退款'];
-const INCOME_CATEGORIES = ['薪資', '獎金', '投資', '退款', '其他收入'];
 
 // 用來判斷這句話整體是收入還支出的觸發詞（沒命中細分類別，但明確表示是收入時使用）
 const INCOME_TRIGGER_WORDS = ['收入', '收到', '入帳', '進帳'];
@@ -43,22 +41,27 @@ function guessAmount(text) {
   return Number(matches[0]);
 }
 
+// 使用者自訂類別也直接用「名稱是否出現在原文裡」來比對，讓自訂類別一樣能被語音辨識抓到
+function guessCustomCategory(text, type) {
+  const lower = (text || '').toLowerCase();
+  const customCats = DB.getCategories(type).filter(c => !c.builtin);
+  const matched = customCats.find(c => lower.includes(c.name.toLowerCase()));
+  return matched ? matched.name : null;
+}
+
 function parseSpeechText(text) {
   const trimmed = (text || '').trim();
-  const incomeCategory = guessFromKeywords(trimmed, INCOME_CATEGORY_KEYWORDS, INCOME_MATCH_ORDER);
+  const lower = trimmed.toLowerCase();
+
+  const incomeCategory = guessCustomCategory(trimmed, 'income') || guessFromKeywords(trimmed, INCOME_CATEGORY_KEYWORDS, INCOME_MATCH_ORDER);
   if (incomeCategory) {
     return { type: 'income', amount: guessAmount(trimmed), category: incomeCategory, note: trimmed };
   }
-  const lower = trimmed.toLowerCase();
   if (INCOME_TRIGGER_WORDS.some(w => lower.includes(w))) {
     return { type: 'income', amount: guessAmount(trimmed), category: '其他收入', note: trimmed };
   }
-  const expenseCategory = guessFromKeywords(trimmed, EXPENSE_CATEGORY_KEYWORDS, EXPENSE_MATCH_ORDER);
+  const expenseCategory = guessCustomCategory(trimmed, 'expense') || guessFromKeywords(trimmed, EXPENSE_CATEGORY_KEYWORDS, EXPENSE_MATCH_ORDER);
   return { type: 'expense', amount: guessAmount(trimmed), category: expenseCategory || '其他', note: trimmed };
-}
-
-function categoriesForType(type) {
-  return type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 }
 
 const Speech = (() => {

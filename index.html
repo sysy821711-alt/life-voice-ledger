@@ -63,6 +63,10 @@
           <span>類別</span>
           <div id="category-chips" class="chips"></div>
         </div>
+        <div class="field">
+          <span>付款方式（選填）</span>
+          <div id="payment-chips" class="chips"></div>
+        </div>
         <label class="field">
           <span>日期時間</span>
           <input type="datetime-local" id="datetime-input">
@@ -154,6 +158,10 @@
         <span>類別</span>
         <div id="recurring-category-chips" class="chips"></div>
       </div>
+      <div class="field">
+        <span>付款方式（選填）</span>
+        <div id="recurring-payment-chips" class="chips"></div>
+      </div>
       <label class="field">
         <span>頻率</span>
         <select id="recurring-frequency-input">
@@ -192,6 +200,32 @@
       <h3>本月預算設定</h3>
       <p class="backup-hint">為目前帳本的各類別設定每月預算，會用來在統計頁顯示使用進度。</p>
       <div id="budget-form"></div>
+    </div>
+
+    <div class="backup-section">
+      <h3>類別管理</h3>
+      <p class="backup-hint">新增自訂類別並指定圖示（直接貼上 emoji 即可）。內建類別無法刪除，但可以在這裡加入你自己的分類。</p>
+      <div class="type-toggle" id="category-manage-type-toggle">
+        <button type="button" class="type-btn active" data-type="expense">支出類別</button>
+        <button type="button" class="type-btn" data-type="income">收入類別</button>
+      </div>
+      <ul id="category-manage-list" class="manage-list"></ul>
+      <div class="inline-add-form">
+        <input type="text" id="new-category-icon" placeholder="📦" maxlength="4">
+        <input type="text" id="new-category-name" placeholder="類別名稱">
+        <button type="button" id="new-category-btn" class="secondary-btn">新增</button>
+      </div>
+    </div>
+
+    <div class="backup-section">
+      <h3>付款方式管理</h3>
+      <p class="backup-hint">新增自訂付款方式，例如 Line Pay、Apple Pay、特定信用卡。</p>
+      <ul id="payment-manage-list" class="manage-list"></ul>
+      <div class="inline-add-form">
+        <input type="text" id="new-payment-icon" placeholder="💰" maxlength="4">
+        <input type="text" id="new-payment-name" placeholder="付款方式名稱">
+        <button type="button" id="new-payment-btn" class="secondary-btn">新增</button>
+      </div>
     </div>
 
     <div class="backup-section">

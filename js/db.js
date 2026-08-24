@@ -5,6 +5,33 @@ const DB = (() => {
   const CURRENT_BOOK_KEY = 'voiceLedger.currentBookId';
   const BUDGETS_KEY = 'voiceLedger.budgets';
   const RECURRINGS_KEY = 'voiceLedger.recurrings';
+  const CATEGORIES_KEY = 'voiceLedger.categories';
+  const PAYMENT_METHODS_KEY = 'voiceLedger.paymentMethods';
+
+  const DEFAULT_CATEGORIES = [
+    { type: 'expense', name: '餐飲', icon: '🍜' },
+    { type: 'expense', name: '交通', icon: '🚗' },
+    { type: 'expense', name: '購物', icon: '🛍️' },
+    { type: 'expense', name: '居住', icon: '🏠' },
+    { type: 'expense', name: '娛樂', icon: '🎬' },
+    { type: 'expense', name: '醫療', icon: '💊' },
+    { type: 'expense', name: '教育', icon: '📚' },
+    { type: 'expense', name: '人情', icon: '🎁' },
+    { type: 'expense', name: '其他', icon: '📦' },
+    { type: 'income', name: '薪資', icon: '💰' },
+    { type: 'income', name: '獎金', icon: '🎉' },
+    { type: 'income', name: '投資', icon: '📈' },
+    { type: 'income', name: '退款', icon: '💵' },
+    { type: 'income', name: '其他收入', icon: '💴' }
+  ];
+
+  const DEFAULT_PAYMENT_METHODS = [
+    { name: '現金', icon: '💵' },
+    { name: '信用卡', icon: '💳' },
+    { name: '金融卡', icon: '🏧' },
+    { name: '行動支付', icon: '📱' },
+    { name: '銀行轉帳', icon: '🏦' }
+  ];
 
   // 舊版「旅遊語音記帳」使用的 key，用來做一次性資料搬遷
   const OLD_TRIPS_KEY = 'voiceExpense.trips';
@@ -53,6 +80,17 @@ const DB = (() => {
     if (oldCurrent) localStorage.setItem(CURRENT_BOOK_KEY, oldCurrent);
   }
   migrateFromOldVersion();
+
+  // ---------- 首次啟動時，種入預設類別／付款方式 ----------
+  function seedDefaults() {
+    if (localStorage.getItem(CATEGORIES_KEY) === null) {
+      writeJSON(CATEGORIES_KEY, DEFAULT_CATEGORIES.map(c => Object.assign({ id: uid(), builtin: true }, c)));
+    }
+    if (localStorage.getItem(PAYMENT_METHODS_KEY) === null) {
+      writeJSON(PAYMENT_METHODS_KEY, DEFAULT_PAYMENT_METHODS.map(p => Object.assign({ id: uid(), builtin: true }, p)));
+    }
+  }
+  seedDefaults();
 
   // ---------- Books ----------
   function getBooks() {
@@ -109,7 +147,7 @@ const DB = (() => {
     writeJSON(TX_KEY, transactions);
   }
 
-  function addTransaction({ bookId, type, amount, category, note, rawText, timestamp }) {
+  function addTransaction({ bookId, type, amount, category, note, rawText, timestamp, paymentMethod }) {
     const transactions = getTransactions();
     const tx = {
       id: uid(),
@@ -119,7 +157,8 @@ const DB = (() => {
       category: category || '其他',
       note: note || '',
       rawText: rawText || '',
-      timestamp: timestamp || Date.now()
+      timestamp: timestamp || Date.now(),
+      paymentMethod: paymentMethod || ''
     };
     transactions.push(tx);
     saveTransactions(transactions);
@@ -213,7 +252,7 @@ const DB = (() => {
     return toDateStr(d);
   }
 
-  function addRecurring({ bookId, type, amount, category, note, frequency, dayOfMonth, weekday, startDate }) {
+  function addRecurring({ bookId, type, amount, category, note, frequency, dayOfMonth, weekday, startDate, paymentMethod }) {
     const recurrings = getRecurringsRaw();
     const start = startDate || toDateStr(new Date());
     const recurring = {
@@ -228,7 +267,8 @@ const DB = (() => {
       weekday: weekday != null ? weekday : null,
       startDate: start,
       nextDate: start,
-      active: true
+      active: true,
+      paymentMethod: paymentMethod || ''
     };
     recurrings.push(recurring);
     saveRecurrings(recurrings);
@@ -268,7 +308,8 @@ const DB = (() => {
           category: r.category,
           note: r.note,
           rawText: '[定期] ' + (r.note || r.category),
-          timestamp: new Date(r.nextDate + 'T12:00:00').getTime()
+          timestamp: new Date(r.nextDate + 'T12:00:00').getTime(),
+          paymentMethod: r.paymentMethod || ''
         });
         addedCount++;
         r.nextDate = computeNextDate(r.nextDate, r.frequency, r.dayOfMonth, r.weekday);
@@ -281,15 +322,81 @@ const DB = (() => {
     return addedCount;
   }
 
+  // ---------- Categories（全帳本共用；內建類別不可刪除） ----------
+  function getCategoriesRaw() {
+    return readJSON(CATEGORIES_KEY, []);
+  }
+
+  function getCategories(type) {
+    const all = getCategoriesRaw();
+    return type ? all.filter(c => c.type === type) : all;
+  }
+
+  function getCategoryIcon(name) {
+    const found = getCategoriesRaw().find(c => c.name === name);
+    return found ? found.icon : '🏷️';
+  }
+
+  function addCategory(type, name, icon) {
+    const all = getCategoriesRaw();
+    const existing = all.find(c => c.type === type && c.name === name);
+    if (existing) return existing;
+    const category = { id: uid(), type: type === 'income' ? 'income' : 'expense', name, icon: icon || '📦', builtin: false };
+    all.push(category);
+    writeJSON(CATEGORIES_KEY, all);
+    return category;
+  }
+
+  function deleteCategory(id) {
+    const all = getCategoriesRaw();
+    const category = all.find(c => c.id === id);
+    if (!category || category.builtin) return false;
+    writeJSON(CATEGORIES_KEY, all.filter(c => c.id !== id));
+    // 同時清掉所有帳本裡，指向這個已刪除類別的預算設定
+    saveBudgets(getBudgetsRaw().filter(b => b.category !== category.name));
+    return true;
+  }
+
+  // ---------- Payment methods（全帳本共用；內建付款方式不可刪除） ----------
+  function getPaymentMethods() {
+    return readJSON(PAYMENT_METHODS_KEY, []);
+  }
+
+  function getPaymentMethodIcon(name) {
+    if (!name) return '';
+    const found = getPaymentMethods().find(p => p.name === name);
+    return found ? found.icon : '💰';
+  }
+
+  function addPaymentMethod(name, icon) {
+    const all = getPaymentMethods();
+    const existing = all.find(p => p.name === name);
+    if (existing) return existing;
+    const method = { id: uid(), name, icon: icon || '💰', builtin: false };
+    all.push(method);
+    writeJSON(PAYMENT_METHODS_KEY, all);
+    return method;
+  }
+
+  function deletePaymentMethod(id) {
+    const all = getPaymentMethods();
+    const method = all.find(p => p.id === id);
+    if (!method || method.builtin) return false;
+    writeJSON(PAYMENT_METHODS_KEY, all.filter(p => p.id !== id));
+    return true;
+  }
+
   // ---------- Backup / Restore ----------
   function exportAll() {
     return {
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       books: getBooks(),
       transactions: getTransactions(),
       budgets: getBudgetsRaw(),
-      recurrings: getRecurringsRaw()
+      recurrings: getRecurringsRaw(),
+      categories: getCategoriesRaw(),
+      paymentMethods: getPaymentMethods()
     };
   }
 
@@ -344,6 +451,25 @@ const DB = (() => {
     });
     saveRecurrings(recurrings);
 
+    // 類別／付款方式依名稱去重（不同裝置各自種預設值時 id 不會相同，但名稱相同就不必重複加入）
+    const incomingCategories = Array.isArray(data && data.categories) ? data.categories : [];
+    const categories = getCategoriesRaw();
+    incomingCategories.forEach(c => {
+      if (c && c.name && c.type && !categories.some(existing => existing.type === c.type && existing.name === c.name)) {
+        categories.push(Object.assign({}, c, { id: uid() }));
+      }
+    });
+    writeJSON(CATEGORIES_KEY, categories);
+
+    const incomingPaymentMethods = Array.isArray(data && data.paymentMethods) ? data.paymentMethods : [];
+    const paymentMethods = getPaymentMethods();
+    incomingPaymentMethods.forEach(p => {
+      if (p && p.name && !paymentMethods.some(existing => existing.name === p.name)) {
+        paymentMethods.push(Object.assign({}, p, { id: uid() }));
+      }
+    });
+    writeJSON(PAYMENT_METHODS_KEY, paymentMethods);
+
     return { addedBooks, addedTx };
   }
 
@@ -353,6 +479,8 @@ const DB = (() => {
     getTransactions, addTransaction, updateTransaction, deleteTransaction, getTransactionsByBook,
     getBudgets, setBudget,
     getRecurrings, addRecurring, updateRecurring, deleteRecurring, applyDueRecurrings,
+    getCategories, getCategoryIcon, addCategory, deleteCategory,
+    getPaymentMethods, getPaymentMethodIcon, addPaymentMethod, deletePaymentMethod,
     exportAll, importAll
   };
 })();

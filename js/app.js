@@ -8,7 +8,8 @@
     confirmType: 'expense',
     recurringType: 'expense',
     historyTypeFilter: '',
-    statsFilterTouched: false
+    statsFilterTouched: false,
+    categoryManageType: 'expense'
   };
 
   const el = {};
@@ -16,7 +17,7 @@
   function cacheEls() {
     const ids = [
       'book-select', 'mic-btn', 'mic-status', 'transcript', 'manual-entry-link',
-      'confirm-form', 'amount-input', 'category-chips', 'note-input',
+      'confirm-form', 'amount-input', 'category-chips', 'payment-chips', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
       'history-list', 'history-empty', 'stats-book-select',
       'stats-income', 'stats-expense', 'stats-net', 'stats-count',
@@ -27,8 +28,10 @@
       'export-json-btn', 'export-csv-btn', 'import-file-input',
       'type-toggle', 'confirm-type-toggle', 'history-type-filter',
       'recurring-list', 'recurring-form', 'recurring-note-input', 'recurring-amount-input',
-      'recurring-category-chips', 'recurring-frequency-input', 'recurring-start-input',
-      'recurring-type-toggle', 'budget-form'
+      'recurring-category-chips', 'recurring-payment-chips', 'recurring-frequency-input', 'recurring-start-input',
+      'recurring-type-toggle', 'budget-form',
+      'category-manage-type-toggle', 'category-manage-list', 'new-category-icon', 'new-category-name', 'new-category-btn',
+      'payment-manage-list', 'new-payment-icon', 'new-payment-name', 'new-payment-btn'
     ];
     ids.forEach(id => {
       el[toCamel(id)] = document.getElementById(id);
@@ -48,6 +51,7 @@
     bindHistoryFilter();
     bindBookTab();
     bindRecurringTab();
+    bindCategoryManageTab();
     el.statsBookSelect.addEventListener('change', () => {
       state.statsFilterTouched = true;
       renderStats();
@@ -75,7 +79,7 @@
     });
     if (tab === 'stats') renderStats();
     if (tab === 'history') renderHistory();
-    if (tab === 'books') { renderBooks(); renderBudgetForm(); }
+    if (tab === 'books') { renderBooks(); renderBudgetForm(); renderCategoryManageList(); renderPaymentManageList(); }
     if (tab === 'record') renderRecordTab();
     if (tab === 'recurring') renderRecurringList();
   }
@@ -100,21 +104,73 @@
     container.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
   }
 
-  function renderChips(container, categories, selected, onSelect) {
+  // 類別：一定要選一個。多附一顆「＋」用來即時新增自訂類別（含圖示）。
+  function renderCategoryChips(container, type, selected, onSelect) {
+    const categories = DB.getCategories(type);
     container.innerHTML = '';
     categories.forEach(cat => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'chip' + (cat === selected ? ' selected' : '');
-      chip.textContent = cat;
-      chip.dataset.category = cat;
+      chip.className = 'chip' + (cat.name === selected ? ' selected' : '');
+      chip.textContent = `${cat.icon} ${cat.name}`;
+      chip.dataset.value = cat.name;
       chip.addEventListener('click', () => {
         container.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
         chip.classList.add('selected');
-        if (onSelect) onSelect(cat);
+        if (onSelect) onSelect(cat.name);
       });
       container.appendChild(chip);
     });
+    const addChip = document.createElement('button');
+    addChip.type = 'button';
+    addChip.className = 'chip chip-add';
+    addChip.textContent = '＋ 新增類別';
+    addChip.addEventListener('click', () => {
+      const icon = (prompt('輸入類別圖示（可留空，例如 🏋️）', '') || '').trim();
+      const name = (prompt('輸入新類別名稱') || '').trim();
+      if (!name) return;
+      const created = DB.addCategory(type, name, icon);
+      renderCategoryChips(container, type, created.name, onSelect);
+      if (onSelect) onSelect(created.name);
+    });
+    container.appendChild(addChip);
+  }
+
+  // 付款方式：選填，可以不選（再點一次已選的 chip 會取消選取）。也附一顆「＋」新增。
+  function renderPaymentChips(container, selected, onSelect) {
+    const methods = DB.getPaymentMethods();
+    container.innerHTML = '';
+    methods.forEach(pm => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (pm.name === selected ? ' selected' : '');
+      chip.textContent = `${pm.icon} ${pm.name}`;
+      chip.dataset.value = pm.name;
+      chip.addEventListener('click', () => {
+        const wasSelected = chip.classList.contains('selected');
+        container.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+        if (!wasSelected) {
+          chip.classList.add('selected');
+          if (onSelect) onSelect(pm.name);
+        } else if (onSelect) {
+          onSelect(null);
+        }
+      });
+      container.appendChild(chip);
+    });
+    const addChip = document.createElement('button');
+    addChip.type = 'button';
+    addChip.className = 'chip chip-add';
+    addChip.textContent = '＋ 新增付款方式';
+    addChip.addEventListener('click', () => {
+      const icon = (prompt('輸入付款方式圖示（可留空，例如 💳）', '') || '').trim();
+      const name = (prompt('輸入新付款方式名稱') || '').trim();
+      if (!name) return;
+      const created = DB.addPaymentMethod(name, icon);
+      renderPaymentChips(container, created.name, onSelect);
+      if (onSelect) onSelect(created.name);
+    });
+    container.appendChild(addChip);
   }
 
   function escapeHtml(str) {
@@ -134,8 +190,9 @@
     bindTypeToggle(el.typeToggle, (type) => { state.pendingType = type; });
     bindTypeToggle(el.confirmTypeToggle, (type) => {
       state.confirmType = type;
-      const categories = categoriesForType(type);
-      renderChips(el.categoryChips, categories, categories[categories.length - 1]);
+      const categories = DB.getCategories(type);
+      const fallback = categories.length ? categories[categories.length - 1].name : '其他';
+      renderCategoryChips(el.categoryChips, type, fallback);
     });
 
     el.micBtn.addEventListener('click', toggleListening);
@@ -202,16 +259,19 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function openConfirmForm({ type, amount, category, note, rawText, timestamp }) {
+  function openConfirmForm({ type, amount, category, note, rawText, timestamp, paymentMethod }) {
     state.pendingTx = { rawText: rawText || '' };
     state.confirmType = type || 'expense';
     setActiveTypeBtn(el.confirmTypeToggle, state.confirmType);
     el.amountInput.value = amount != null ? amount : '';
     el.noteInput.value = note || '';
     el.datetimeInput.value = toDatetimeLocalValue(timestamp || Date.now());
-    const categories = categoriesForType(state.confirmType);
-    const selected = category && categories.includes(category) ? category : categories[categories.length - 1];
-    renderChips(el.categoryChips, categories, selected);
+    const categories = DB.getCategories(state.confirmType);
+    const selected = category && categories.some(c => c.name === category)
+      ? category
+      : (categories.length ? categories[categories.length - 1].name : '其他');
+    renderCategoryChips(el.categoryChips, state.confirmType, selected);
+    renderPaymentChips(el.paymentChips, paymentMethod || null);
     el.confirmFormTitle.textContent = state.editingTxId ? '編輯收支' : '確認收支';
     el.confirmForm.classList.remove('hidden');
     el.amountInput.focus();
@@ -235,18 +295,20 @@
       return;
     }
     const type = state.confirmType;
-    const categories = categoriesForType(type);
+    const categories = DB.getCategories(type);
     const selectedChip = el.categoryChips.querySelector('.chip.selected');
-    const category = selectedChip ? selectedChip.dataset.category : categories[categories.length - 1];
+    const category = selectedChip ? selectedChip.dataset.value : (categories.length ? categories[categories.length - 1].name : '其他');
+    const selectedPaymentChip = el.paymentChips.querySelector('.chip.selected');
+    const paymentMethod = selectedPaymentChip ? selectedPaymentChip.dataset.value : '';
     const note = el.noteInput.value.trim();
     const rawText = state.pendingTx ? state.pendingTx.rawText : '';
     const parsedTimestamp = new Date(el.datetimeInput.value).getTime();
     const timestamp = isNaN(parsedTimestamp) ? Date.now() : parsedTimestamp;
 
     if (state.editingTxId) {
-      DB.updateTransaction(state.editingTxId, { type, amount, category, note, rawText, timestamp });
+      DB.updateTransaction(state.editingTxId, { type, amount, category, note, rawText, timestamp, paymentMethod });
     } else {
-      DB.addTransaction({ bookId, type, amount, category, note, rawText, timestamp });
+      DB.addTransaction({ bookId, type, amount, category, note, rawText, timestamp, paymentMethod });
     }
     closeConfirmForm();
     el.transcript.textContent = '';
@@ -305,12 +367,17 @@
       const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
       const badgeBg = getCategoryColor(tx.category) + '22';
       const badgeText = getCategoryTextColor(tx.category);
+      const catIcon = DB.getCategoryIcon(tx.category);
       const sign = tx.type === 'income' ? '+' : '−';
       const amountClass = tx.type === 'income' ? 'income' : 'expense';
+      const paymentBadge = tx.paymentMethod
+        ? `<span class="history-payment">${DB.getPaymentMethodIcon(tx.paymentMethod)} ${escapeHtml(tx.paymentMethod)}</span>`
+        : '';
       item.innerHTML = `
         <div class="history-main">
           <div class="history-top">
-            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${tx.category}</span>
+            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${catIcon} ${tx.category}</span>
+            ${paymentBadge}
             <span class="history-date">${dateStr}</span>
           </div>
           <div class="history-note">${escapeHtml(tx.note || tx.rawText || '（無備註）')}</div>
@@ -329,7 +396,8 @@
           category: tx.category,
           note: tx.note,
           rawText: tx.rawText,
-          timestamp: tx.timestamp
+          timestamp: tx.timestamp,
+          paymentMethod: tx.paymentMethod
         });
         switchTab('record');
       });
@@ -420,10 +488,12 @@
   function bindRecurringTab() {
     bindTypeToggle(el.recurringTypeToggle, (type) => {
       state.recurringType = type;
-      const categories = categoriesForType(type);
-      renderChips(el.recurringCategoryChips, categories, categories[categories.length - 1]);
+      const categories = DB.getCategories(type);
+      const fallback = categories.length ? categories[categories.length - 1].name : '其他';
+      renderCategoryChips(el.recurringCategoryChips, type, fallback);
     });
-    renderChips(el.recurringCategoryChips, categoriesForType(state.recurringType), '其他');
+    renderCategoryChips(el.recurringCategoryChips, state.recurringType, '其他');
+    renderPaymentChips(el.recurringPaymentChips, null);
     el.recurringStartInput.value = todayDateStr();
 
     el.recurringForm.addEventListener('submit', (e) => {
@@ -438,9 +508,11 @@
         alert('請輸入有效的金額');
         return;
       }
-      const categories = categoriesForType(state.recurringType);
+      const categories = DB.getCategories(state.recurringType);
       const selectedChip = el.recurringCategoryChips.querySelector('.chip.selected');
-      const category = selectedChip ? selectedChip.dataset.category : categories[categories.length - 1];
+      const category = selectedChip ? selectedChip.dataset.value : (categories.length ? categories[categories.length - 1].name : '其他');
+      const selectedPaymentChip = el.recurringPaymentChips.querySelector('.chip.selected');
+      const paymentMethod = selectedPaymentChip ? selectedPaymentChip.dataset.value : '';
       const note = el.recurringNoteInput.value.trim();
       const frequency = el.recurringFrequencyInput.value;
       const startDate = el.recurringStartInput.value || todayDateStr();
@@ -448,10 +520,11 @@
       const dayOfMonth = frequency === 'monthly' ? startDateObj.getDate() : null;
       const weekday = frequency === 'weekly' ? startDateObj.getDay() : null;
 
-      DB.addRecurring({ bookId, type: state.recurringType, amount, category, note, frequency, dayOfMonth, weekday, startDate });
+      DB.addRecurring({ bookId, type: state.recurringType, amount, category, note, frequency, dayOfMonth, weekday, startDate, paymentMethod });
       el.recurringForm.reset();
       el.recurringStartInput.value = todayDateStr();
-      renderChips(el.recurringCategoryChips, categories, categories[categories.length - 1]);
+      renderCategoryChips(el.recurringCategoryChips, state.recurringType, category);
+      renderPaymentChips(el.recurringPaymentChips, null);
       renderRecurringList();
     });
   }
@@ -472,12 +545,17 @@
       li.className = 'history-item' + (r.active ? '' : ' inactive');
       const badgeBg = getCategoryColor(r.category) + '22';
       const badgeText = getCategoryTextColor(r.category);
+      const catIcon = DB.getCategoryIcon(r.category);
       const sign = r.type === 'income' ? '+' : '−';
       const amountClass = r.type === 'income' ? 'income' : 'expense';
+      const paymentBadge = r.paymentMethod
+        ? `<span class="history-payment">${DB.getPaymentMethodIcon(r.paymentMethod)} ${escapeHtml(r.paymentMethod)}</span>`
+        : '';
       li.innerHTML = `
         <div class="history-main">
           <div class="history-top">
-            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${r.category}</span>
+            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${catIcon} ${r.category}</span>
+            ${paymentBadge}
             <span class="history-date">${frequencyLabel(r)} · 下次 ${r.nextDate}</span>
           </div>
           <div class="history-note">${escapeHtml(r.note || r.category)}</div>
@@ -562,7 +640,7 @@
     }
     const book = DB.getBooks().find(b => b.id === bookId);
     const transactions = DB.getTransactionsByBook(bookId).sort((a, b) => a.timestamp - b.timestamp);
-    const rows = [['日期時間', '類型', '類別', '金額', '幣別', '備註', '語音原文']];
+    const rows = [['日期時間', '類型', '類別', '金額', '幣別', '付款方式', '備註', '語音原文']];
     transactions.forEach(tx => {
       rows.push([
         toDatetimeLocalValue(tx.timestamp).replace('T', ' '),
@@ -570,6 +648,7 @@
         tx.category,
         tx.amount,
         book ? book.currency : '',
+        tx.paymentMethod || '',
         tx.note,
         tx.rawText
       ]);
@@ -647,16 +726,95 @@
     const budgetMap = {};
     budgets.forEach(b => { budgetMap[b.category] = b.amount; });
     el.budgetForm.innerHTML = '';
-    EXPENSE_CATEGORIES.filter(cat => cat !== '其他').forEach(cat => {
+    DB.getCategories('expense').filter(cat => cat.name !== '其他').forEach(cat => {
       const row = document.createElement('label');
       row.className = 'field budget-input-row';
-      row.innerHTML = `<span>${cat}</span><input type="number" min="0" step="1" placeholder="未設定" value="${budgetMap[cat] != null ? budgetMap[cat] : ''}">`;
+      row.innerHTML = `<span>${cat.icon} ${cat.name}</span><input type="number" min="0" step="1" placeholder="未設定" value="${budgetMap[cat.name] != null ? budgetMap[cat.name] : ''}">`;
       const input = row.querySelector('input');
       input.addEventListener('change', () => {
         const val = parseFloat(input.value);
-        DB.setBudget(bookId, cat, isNaN(val) || val <= 0 ? null : val);
+        DB.setBudget(bookId, cat.name, isNaN(val) || val <= 0 ? null : val);
       });
       el.budgetForm.appendChild(row);
+    });
+  }
+
+  // ---------- 類別／付款方式管理 ----------
+  function bindCategoryManageTab() {
+    bindTypeToggle(el.categoryManageTypeToggle, (type) => {
+      state.categoryManageType = type;
+      renderCategoryManageList();
+    });
+
+    el.newCategoryBtn.addEventListener('click', () => {
+      const name = el.newCategoryName.value.trim();
+      if (!name) {
+        alert('請輸入類別名稱');
+        return;
+      }
+      DB.addCategory(state.categoryManageType, name, el.newCategoryIcon.value.trim());
+      el.newCategoryIcon.value = '';
+      el.newCategoryName.value = '';
+      renderCategoryManageList();
+      renderBudgetForm();
+    });
+
+    el.newPaymentBtn.addEventListener('click', () => {
+      const name = el.newPaymentName.value.trim();
+      if (!name) {
+        alert('請輸入付款方式名稱');
+        return;
+      }
+      DB.addPaymentMethod(name, el.newPaymentIcon.value.trim());
+      el.newPaymentIcon.value = '';
+      el.newPaymentName.value = '';
+      renderPaymentManageList();
+    });
+  }
+
+  function renderCategoryManageList() {
+    setActiveTypeBtn(el.categoryManageTypeToggle, state.categoryManageType);
+    const categories = DB.getCategories(state.categoryManageType);
+    el.categoryManageList.innerHTML = '';
+    categories.forEach(cat => {
+      const li = document.createElement('li');
+      li.className = 'manage-item';
+      li.innerHTML = `
+        <span class="manage-item-label">${cat.icon} ${escapeHtml(cat.name)}</span>
+        ${cat.builtin ? '<span class="manage-item-tag">內建</span>' : '<button class="manage-item-delete" aria-label="刪除">✕</button>'}
+      `;
+      if (!cat.builtin) {
+        li.querySelector('.manage-item-delete').addEventListener('click', () => {
+          if (confirm(`確定刪除類別「${cat.name}」？（已記錄的舊紀錄不會被刪除，只是這個類別不會再出現在選單）`)) {
+            DB.deleteCategory(cat.id);
+            renderCategoryManageList();
+            renderBudgetForm();
+          }
+        });
+      }
+      el.categoryManageList.appendChild(li);
+    });
+  }
+
+  function renderPaymentManageList() {
+    const methods = DB.getPaymentMethods();
+    el.paymentManageList.innerHTML = '';
+    methods.forEach(pm => {
+      const li = document.createElement('li');
+      li.className = 'manage-item';
+      li.innerHTML = `
+        <span class="manage-item-label">${pm.icon} ${escapeHtml(pm.name)}</span>
+        ${pm.builtin ? '<span class="manage-item-tag">內建</span>' : '<button class="manage-item-delete" aria-label="刪除">✕</button>'}
+      `;
+      if (!pm.builtin) {
+        li.querySelector('.manage-item-delete').addEventListener('click', () => {
+          if (confirm(`確定刪除付款方式「${pm.name}」？`)) {
+            DB.deletePaymentMethod(pm.id);
+            renderPaymentManageList();
+          }
+        });
+      }
+      el.paymentManageList.appendChild(li);
     });
   }
 
@@ -667,6 +825,8 @@
     renderBooks();
     renderBudgetForm();
     renderRecurringList();
+    renderCategoryManageList();
+    renderPaymentManageList();
   }
 
   function registerServiceWorker() {

@@ -41,12 +41,22 @@ const EXPENSE_COLOR = '#F76E4F';
 // 每日趨勢圖用單一中性色，刻意跟上方分類色盤區隔，避免讓人誤以為顏色有對應關係
 const TREND_BAR_COLOR = '#334155';
 
+// 自訂類別沒有預先指定顏色，用名稱的雜湊值從固定色盤挑一個，同一個名稱永遠拿到同一個顏色
+const FALLBACK_PALETTE = ['#4F8EF7', '#F76E4F', '#4FD1A5', '#A47FF7', '#F7C948', '#EC6C9A', '#5AB0D6', '#D69E5A', '#2FBF71', '#E24B4A'];
+const FALLBACK_TEXT_PALETTE = ['#3A70D6', '#D14E2F', '#1F9C74', '#7A4FE0', '#A67A00', '#C24E7C', '#2E86AE', '#A6772F', '#1F9C56', '#A32D2D'];
+
+function hashCategoryIndex(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return hash % FALLBACK_PALETTE.length;
+}
+
 function getCategoryColor(category) {
-  return CATEGORY_COLORS[category] || CATEGORY_COLORS['其他'];
+  return CATEGORY_COLORS[category] || FALLBACK_PALETTE[hashCategoryIndex(category)];
 }
 
 function getCategoryTextColor(category) {
-  return CATEGORY_TEXT_COLORS[category] || CATEGORY_TEXT_COLORS['其他'];
+  return CATEGORY_TEXT_COLORS[category] || FALLBACK_TEXT_PALETTE[hashCategoryIndex(category)];
 }
 
 function svgEl(tag, attrs) {
