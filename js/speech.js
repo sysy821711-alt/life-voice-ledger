@@ -35,10 +35,26 @@ function guessFromKeywords(text, keywordMap, matchOrder) {
   return null;
 }
 
-function guessAmount(text) {
-  const matches = (text || '').match(/[0-9]+(?:\.[0-9]+)?/g);
-  if (!matches || matches.length === 0) return null;
-  return Number(matches[0]);
+// 金額後面常見的單位詞，把金額拿掉時一併清掉，避免備註留下「花了元」這種尾巴
+const CURRENCY_UNIT_WORDS = ['元整', '元', '塊錢', '塊', '圓'];
+
+// 從語音文字裡抓出金額，同時回傳「拿掉金額數字後」的備註文字
+function extractAmountAndNote(text) {
+  const trimmed = (text || '').trim();
+  const match = trimmed.match(/[0-9]+(?:\.[0-9]+)?/);
+  if (!match) {
+    return { amount: null, note: trimmed };
+  }
+  const before = trimmed.slice(0, match.index);
+  let after = trimmed.slice(match.index + match[0].length);
+  for (const unit of CURRENCY_UNIT_WORDS) {
+    if (after.startsWith(unit)) {
+      after = after.slice(unit.length);
+      break;
+    }
+  }
+  const note = (before + after).replace(/\s+/g, ' ').trim();
+  return { amount: Number(match[0]), note: note || trimmed };
 }
 
 // 使用者自訂類別也直接用「名稱是否出現在原文裡」來比對，讓自訂類別一樣能被語音辨識抓到
@@ -52,16 +68,17 @@ function guessCustomCategory(text, type) {
 function parseSpeechText(text) {
   const trimmed = (text || '').trim();
   const lower = trimmed.toLowerCase();
+  const { amount, note } = extractAmountAndNote(trimmed);
 
   const incomeCategory = guessCustomCategory(trimmed, 'income') || guessFromKeywords(trimmed, INCOME_CATEGORY_KEYWORDS, INCOME_MATCH_ORDER);
   if (incomeCategory) {
-    return { type: 'income', amount: guessAmount(trimmed), category: incomeCategory, note: trimmed };
+    return { type: 'income', amount, category: incomeCategory, note };
   }
   if (INCOME_TRIGGER_WORDS.some(w => lower.includes(w))) {
-    return { type: 'income', amount: guessAmount(trimmed), category: '其他收入', note: trimmed };
+    return { type: 'income', amount, category: '其他收入', note };
   }
   const expenseCategory = guessCustomCategory(trimmed, 'expense') || guessFromKeywords(trimmed, EXPENSE_CATEGORY_KEYWORDS, EXPENSE_MATCH_ORDER);
-  return { type: 'expense', amount: guessAmount(trimmed), category: expenseCategory || '其他', note: trimmed };
+  return { type: 'expense', amount, category: expenseCategory || '其他', note };
 }
 
 const Speech = (() => {
