@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>生活語音記帳簿</title>
+<meta name="theme-color" content="#4F8EF7">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="app-header">
+  <h1>生活語音記帳簿</h1>
+  <select id="book-select" aria-label="目前帳本"></select>
+</header>
+
+<main>
+  <!-- 記帳 -->
+  <section id="tab-record" class="tab-panel active">
+    <div id="record-empty-state" class="empty-state hidden">
+      <p>尚未建立任何帳本</p>
+      <button class="primary-btn" data-goto="books">前往建立帳本</button>
+    </div>
+
+    <div id="record-main">
+      <div class="type-toggle" id="type-toggle">
+        <button type="button" class="type-btn active" data-type="expense">支出</button>
+        <button type="button" class="type-btn" data-type="income">收入</button>
+      </div>
+
+      <div class="mic-area">
+        <button id="mic-btn" aria-label="開始語音記帳">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+            <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
+            <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V20H9a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2h-2v-2.08A7 7 0 0 0 19 11z"/>
+          </svg>
+        </button>
+        <p id="mic-status" class="mic-status"></p>
+        <p id="transcript" class="transcript"></p>
+
+        <div id="dictation-area" class="dictation-area hidden">
+          <p class="dictation-hint">此裝置不支援自動語音辨識，請點下方欄位，再點手機鍵盤上的 🎤 圖示口述</p>
+          <textarea id="dictation-input" rows="2" placeholder="例如：午餐吃拉麵花了250元"></textarea>
+          <button id="dictation-parse-btn" class="primary-btn full-width">解析並填入</button>
+        </div>
+
+        <a href="#" id="manual-entry-link" class="manual-link">改用手動輸入</a>
+      </div>
+
+      <div id="confirm-form" class="confirm-form hidden">
+        <h2 id="confirm-form-title">確認收支</h2>
+        <div class="type-toggle" id="confirm-type-toggle">
+          <button type="button" class="type-btn active" data-type="expense">支出</button>
+          <button type="button" class="type-btn" data-type="income">收入</button>
+        </div>
+        <label class="field">
+          <span>金額</span>
+          <input type="number" id="amount-input" inputmode="decimal" min="0" step="0.01" placeholder="0">
+        </label>
+        <div class="field">
+          <span>類別</span>
+          <div id="category-chips" class="chips"></div>
+        </div>
+        <label class="field">
+          <span>日期時間</span>
+          <input type="datetime-local" id="datetime-input">
+        </label>
+        <label class="field">
+          <span>備註</span>
+          <textarea id="note-input" rows="2" placeholder="例如：午餐吃拉麵"></textarea>
+        </label>
+        <div class="form-actions">
+          <button id="cancel-expense-btn" class="secondary-btn">取消</button>
+          <button id="save-expense-btn" class="primary-btn">儲存</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 紀錄 -->
+  <section id="tab-history" class="tab-panel">
+    <h2 class="section-title">收支紀錄</h2>
+    <div class="type-toggle" id="history-type-filter">
+      <button type="button" class="type-btn active" data-type="">全部</button>
+      <button type="button" class="type-btn" data-type="expense">支出</button>
+      <button type="button" class="type-btn" data-type="income">收入</button>
+    </div>
+    <p id="history-empty" class="empty-state">目前還沒有收支紀錄</p>
+    <ul id="history-list" class="history-list"></ul>
+  </section>
+
+  <!-- 統計 -->
+  <section id="tab-stats" class="tab-panel">
+    <h2 class="section-title">統計</h2>
+    <select id="stats-book-select" aria-label="統計範圍"></select>
+
+    <div class="stats-summary stats-summary-grid">
+      <div class="stats-summary-item">
+        <div class="stats-summary-label">收入</div>
+        <div id="stats-income" class="stats-summary-value income">0</div>
+      </div>
+      <div class="stats-summary-item">
+        <div class="stats-summary-label">支出</div>
+        <div id="stats-expense" class="stats-summary-value expense">0</div>
+      </div>
+      <div class="stats-summary-item">
+        <div class="stats-summary-label">結餘</div>
+        <div id="stats-net" class="stats-summary-value">0</div>
+      </div>
+    </div>
+    <div id="stats-count" class="stats-count">共 0 筆</div>
+
+    <div class="stats-card">
+      <h3>每月收支趨勢</h3>
+      <div id="trend-chart" class="bar-chart"></div>
+      <p id="stats-change-rate" class="change-rate"></p>
+    </div>
+
+    <div class="stats-card">
+      <h3>支出依類別分佈</h3>
+      <div id="pie-chart" class="pie-chart"></div>
+      <div id="pie-legend" class="pie-legend"></div>
+    </div>
+
+    <div class="stats-card">
+      <h3>本月預算使用狀況</h3>
+      <div id="budget-usage"></div>
+    </div>
+  </section>
+
+  <!-- 定期收支 -->
+  <section id="tab-recurring" class="tab-panel">
+    <h2 class="section-title">定期收支</h2>
+    <p class="hint-text">設定一次，到達指定日期會自動新增為收支紀錄（例如每月房租、每月薪水）。</p>
+    <ul id="recurring-list" class="recurring-list"></ul>
+
+    <form id="recurring-form" class="trip-form">
+      <h3>新增定期收支</h3>
+      <div class="type-toggle" id="recurring-type-toggle">
+        <button type="button" class="type-btn active" data-type="expense">支出</button>
+        <button type="button" class="type-btn" data-type="income">收入</button>
+      </div>
+      <label class="field">
+        <span>名稱／備註</span>
+        <input type="text" id="recurring-note-input" placeholder="例如：房租">
+      </label>
+      <label class="field">
+        <span>金額</span>
+        <input type="number" id="recurring-amount-input" inputmode="decimal" min="0" step="0.01" required>
+      </label>
+      <div class="field">
+        <span>類別</span>
+        <div id="recurring-category-chips" class="chips"></div>
+      </div>
+      <label class="field">
+        <span>頻率</span>
+        <select id="recurring-frequency-input">
+          <option value="monthly">每月</option>
+          <option value="weekly">每週</option>
+          <option value="daily">每天</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>開始日期</span>
+        <input type="date" id="recurring-start-input" required>
+      </label>
+      <button type="submit" class="primary-btn full-width">新增定期收支</button>
+    </form>
+  </section>
+
+  <!-- 帳本 -->
+  <section id="tab-books" class="tab-panel">
+    <h2 class="section-title">帳本管理</h2>
+    <ul id="book-list" class="trip-list"></ul>
+
+    <form id="book-form" class="trip-form">
+      <h3>新增帳本</h3>
+      <label class="field">
+        <span>帳本名稱</span>
+        <input type="text" id="book-name-input" placeholder="例如：日常生活" required>
+      </label>
+      <label class="field">
+        <span>幣別代碼</span>
+        <input type="text" id="book-currency-input" placeholder="TWD" maxlength="6">
+      </label>
+      <button type="submit" class="primary-btn full-width">新增帳本</button>
+    </form>
+
+    <div class="backup-section">
+      <h3>本月預算設定</h3>
+      <p class="backup-hint">為目前帳本的各類別設定每月預算，會用來在統計頁顯示使用進度。</p>
+      <div id="budget-form"></div>
+    </div>
+
+    <div class="backup-section">
+      <h3>資料備份</h3>
+      <p class="backup-hint">資料只存在這個裝置的這個 App 圖示裡（瀏覽器本機儲存），無法像 iCloud 一樣自動跨裝置同步，建議定期匯出備份，避免手機清除資料或不小心刪除圖示時遺失紀錄。</p>
+      <button id="export-json-btn" class="secondary-btn full-width">匯出全部資料（JSON 備份）</button>
+      <button id="export-csv-btn" class="secondary-btn full-width">匯出目前帳本（CSV，可用 Excel 開）</button>
+      <label class="import-label">
+        匯入備份檔（只會新增，不會覆蓋現有資料）
+        <input type="file" id="import-file-input" accept="application/json,.json">
+      </label>
+    </div>
+  </section>
+</main>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-tab="record">
+    <span class="nav-icon">🎙️</span><span>記帳</span>
+  </button>
+  <button class="nav-btn" data-tab="history">
+    <span class="nav-icon">📋</span><span>紀錄</span>
+  </button>
+  <button class="nav-btn" data-tab="stats">
+    <span class="nav-icon">📊</span><span>統計</span>
+  </button>
+  <button class="nav-btn" data-tab="recurring">
+    <span class="nav-icon">🔁</span><span>定期</span>
+  </button>
+  <button class="nav-btn" data-tab="books">
+    <span class="nav-icon">📒</span><span>帳本</span>
+  </button>
+</nav>
+
+<script src="js/db.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/app.js"></script>
+<script>
+  document.querySelectorAll('[data-goto]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelector(`.nav-btn[data-tab="${btn.dataset.goto}"]`).click();
+    });
+  });
+</script>
+</body>
+</html>

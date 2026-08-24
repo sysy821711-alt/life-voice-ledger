@@ -1,0 +1,19 @@
+{
+  "name": "生活語音記帳簿",
+  "short_name": "語音記帳",
+  "description": "用語音快速記錄日常收支，支援預算、定期收支與統計趨勢",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F7F8FA",
+  "theme_color": "#4F8EF7",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
