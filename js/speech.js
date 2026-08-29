@@ -37,15 +37,18 @@ function guessFromKeywords(text, keywordMap, matchOrder) {
 
 // 金額後面常見的單位詞，把金額拿掉時一併清掉，避免備註留下「花了元」這種尾巴
 const CURRENCY_UNIT_WORDS = ['元整', '元', '塊錢', '塊', '圓'];
+// 金額前面常見的貨幣符號（例如口述聽寫常把「元」誤判成 $），一併從備註拿掉
+const CURRENCY_PREFIX_PATTERN = /(?:NT\$|NTD|US\$|\$|＄)\s*$/i;
 
-// 從語音文字裡抓出金額，同時回傳「拿掉金額數字後」的備註文字
+// 從語音文字裡抓出金額，同時回傳「拿掉金額數字（含前後貨幣符號／單位）後」的備註文字
 function extractAmountAndNote(text) {
   const trimmed = (text || '').trim();
-  const match = trimmed.match(/[0-9]+(?:\.[0-9]+)?/);
+  // 順便支援千分位逗號（例如 1,184），計算金額時再拿掉逗號
+  const match = trimmed.match(/[0-9][0-9,]*(?:\.[0-9]+)?/);
   if (!match) {
     return { amount: null, note: trimmed };
   }
-  const before = trimmed.slice(0, match.index);
+  const before = trimmed.slice(0, match.index).replace(CURRENCY_PREFIX_PATTERN, '');
   let after = trimmed.slice(match.index + match[0].length);
   for (const unit of CURRENCY_UNIT_WORDS) {
     if (after.startsWith(unit)) {
@@ -54,7 +57,7 @@ function extractAmountAndNote(text) {
     }
   }
   const note = (before + after).replace(/\s+/g, ' ').trim();
-  return { amount: Number(match[0]), note: note || trimmed };
+  return { amount: Number(match[0].replace(/,/g, '')), note: note || trimmed };
 }
 
 // 使用者自訂類別也直接用「名稱是否出現在原文裡」來比對，讓自訂類別一樣能被語音辨識抓到

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v9';
+const CACHE_NAME = 'voice-ledger-v10';
 const APP_SHELL = [
   './',
   './index.html',
@@ -28,25 +28,28 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Network-first：每次都先試著抓最新版本，只有在離線／連線失敗時才退回快取。
+// （改版前是「快取優先，有快取就永遠不再檢查網路」，會導致已安裝在手機主畫面的
+// App 卡在舊版本，即使程式碼已經更新、重開 App 也不會抓到新版，只能手動清除資料才會恢復。）
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => {
-          // 網路失敗且沒有快取：導覽請求退回 app shell，其餘回傳明確的錯誤 Response
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          // 離線且沒有快取：導覽請求退回 app shell，其餘回傳明確的錯誤 Response
           // （絕不能回傳 undefined，否則 Safari 會把整個請求判定成連線中斷）
           if (event.request.mode === 'navigate') {
             return caches.match('./index.html');
           }
           return new Response('離線且尚未快取此資源', { status: 503, statusText: 'Service Unavailable' });
         });
-    })
+      })
   );
 });
