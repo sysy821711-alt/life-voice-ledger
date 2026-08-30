@@ -30,8 +30,10 @@ const DB = (() => {
     { name: '現金', icon: '💵' },
     { name: '信用卡', icon: '💳' },
     { name: '金融卡', icon: '🏧' },
-    { name: '行動支付', icon: '📱' },
-    { name: '銀行轉帳', icon: '🏦' }
+    { name: '銀行轉帳', icon: '🏦' },
+    { name: 'Line Pay', icon: '🟢' },
+    { name: 'Apple Pay', icon: '🍎' },
+    { name: '悠遊卡', icon: '🚇' }
   ];
 
   // 舊版「旅遊語音記帳」使用的 key，用來做一次性資料搬遷
@@ -379,10 +381,10 @@ const DB = (() => {
     return method;
   }
 
+  // 付款方式沒有像類別那樣被語音關鍵字比對綁定，內建的也可以刪除
   function deletePaymentMethod(id) {
     const all = getPaymentMethods();
-    const method = all.find(p => p.id === id);
-    if (!method || method.builtin) return false;
+    if (!all.some(p => p.id === id)) return false;
     writeJSON(PAYMENT_METHODS_KEY, all.filter(p => p.id !== id));
     return true;
   }

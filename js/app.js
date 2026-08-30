@@ -821,6 +821,7 @@
     });
   }
 
+  // 付款方式沒有像類別那樣被語音辨識綁定，內建的也可以刪除
   function renderPaymentManageList() {
     const methods = DB.getPaymentMethods();
     el.paymentManageList.innerHTML = '';
@@ -829,16 +830,14 @@
       li.className = 'manage-item';
       li.innerHTML = `
         <span class="manage-item-label">${pm.icon} ${escapeHtml(pm.name)}</span>
-        ${pm.builtin ? '<span class="manage-item-tag">內建</span>' : '<button class="manage-item-delete" aria-label="刪除">✕</button>'}
+        <button class="manage-item-delete" aria-label="刪除">✕</button>
       `;
-      if (!pm.builtin) {
-        li.querySelector('.manage-item-delete').addEventListener('click', () => {
-          if (confirm(`確定刪除付款方式「${pm.name}」？`)) {
-            DB.deletePaymentMethod(pm.id);
-            renderPaymentManageList();
-          }
-        });
-      }
+      li.querySelector('.manage-item-delete').addEventListener('click', () => {
+        if (confirm(`確定刪除付款方式「${pm.name}」？`)) {
+          DB.deletePaymentMethod(pm.id);
+          renderPaymentManageList();
+        }
+      });
       el.paymentManageList.appendChild(li);
     });
   }
