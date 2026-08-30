@@ -16,7 +16,7 @@
 
   function cacheEls() {
     const ids = [
-      'book-select', 'mic-btn', 'mic-status', 'transcript', 'manual-entry-link',
+      'book-select', 'mic-btn', 'mic-status', 'transcript', 'manual-entry-link', 'mic-area', 'record-mode-toggle',
       'confirm-form', 'amount-input', 'category-chips', 'payment-chips', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
       'history-list', 'history-empty', 'stats-book-select',
@@ -190,9 +190,18 @@
     bindTypeToggle(el.typeToggle, (type) => { state.pendingType = type; });
     bindTypeToggle(el.confirmTypeToggle, (type) => {
       state.confirmType = type;
+      state.pendingType = type;
       const categories = DB.getCategories(type);
       const fallback = categories.length ? categories[categories.length - 1].name : '其他';
       renderCategoryChips(el.categoryChips, type, fallback);
+    });
+
+    el.recordModeToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      const next = DB.getRecordMode() === 'manual' ? 'voice' : 'manual';
+      DB.setRecordMode(next);
+      closeConfirmForm();
+      renderRecordTab();
     });
 
     el.micBtn.addEventListener('click', toggleListening);
@@ -281,6 +290,11 @@
     el.confirmForm.classList.add('hidden');
     state.pendingTx = null;
     state.editingTxId = null;
+    // 手動優先模式下沒有麥克風畫面可以回去，取消／存檔後直接重開一張空白表單，方便連續輸入
+    const onRecordTab = document.getElementById('tab-record').classList.contains('active');
+    if (DB.getRecordMode() === 'manual' && DB.getCurrentBookId() && onRecordTab) {
+      openConfirmForm({ type: state.pendingType, amount: null, category: null, note: '', rawText: '' });
+    }
   }
 
   function saveTransaction() {
@@ -321,6 +335,17 @@
     const hasBook = !!DB.getCurrentBookId();
     el.recordEmptyState.classList.toggle('hidden', hasBook);
     el.recordMain.classList.toggle('hidden', !hasBook);
+
+    const manualFirst = DB.getRecordMode() === 'manual';
+    el.recordModeToggle.textContent = manualFirst ? '🎤 切換為語音輸入' : '⌨️ 切換為手動輸入';
+    el.typeToggle.classList.toggle('hidden', manualFirst);
+    el.micArea.classList.toggle('hidden', manualFirst);
+
+    if (manualFirst && hasBook && el.confirmForm.classList.contains('hidden')) {
+      state.editingTxId = null;
+      openConfirmForm({ type: state.pendingType, amount: null, category: null, note: '', rawText: '' });
+    }
+
     el.micBtn.classList.toggle('hidden', !Speech.isSupported);
     el.dictationArea.classList.toggle('hidden', Speech.isSupported);
   }

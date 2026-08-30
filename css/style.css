@@ -105,6 +105,11 @@ main {
   border-color: var(--danger);
 }
 
+.record-mode-row {
+  text-align: center;
+  margin: 0 0 12px;
+}
+
 .hint-text {
   font-size: 13px;
   color: var(--text-muted);

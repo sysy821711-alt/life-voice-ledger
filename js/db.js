@@ -7,6 +7,7 @@ const DB = (() => {
   const RECURRINGS_KEY = 'voiceLedger.recurrings';
   const CATEGORIES_KEY = 'voiceLedger.categories';
   const PAYMENT_METHODS_KEY = 'voiceLedger.paymentMethods';
+  const RECORD_MODE_KEY = 'voiceLedger.recordMode';
 
   const DEFAULT_CATEGORIES = [
     { type: 'expense', name: '餐飲', icon: '🍜' },
@@ -386,6 +387,15 @@ const DB = (() => {
     return true;
   }
 
+  // ---------- 記帳輸入模式（語音優先 / 手動優先，裝置本機設定，不隨備份匯出） ----------
+  function getRecordMode() {
+    return localStorage.getItem(RECORD_MODE_KEY) === 'manual' ? 'manual' : 'voice';
+  }
+
+  function setRecordMode(mode) {
+    localStorage.setItem(RECORD_MODE_KEY, mode === 'manual' ? 'manual' : 'voice');
+  }
+
   // ---------- Backup / Restore ----------
   function exportAll() {
     return {
@@ -481,6 +491,7 @@ const DB = (() => {
     getRecurrings, addRecurring, updateRecurring, deleteRecurring, applyDueRecurrings,
     getCategories, getCategoryIcon, addCategory, deleteCategory,
     getPaymentMethods, getPaymentMethodIcon, addPaymentMethod, deletePaymentMethod,
+    getRecordMode, setRecordMode,
     exportAll, importAll
   };
 })();
