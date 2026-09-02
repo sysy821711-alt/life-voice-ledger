@@ -59,10 +59,12 @@ const Stats = (() => {
     };
   }
 
-  // 計算「本月」各類別支出與預算的使用狀況
-  function budgetUsage(transactions, budgets) {
+  // 計算指定月份（預設本月）各類別支出與預算的使用狀況
+  function budgetUsage(transactions, budgets, year, month) {
     const now = new Date();
-    const curKey = monthKey(now.getTime());
+    const curKey = year != null && month != null
+      ? `${year}-${String(month + 1).padStart(2, '0')}`
+      : monthKey(now.getTime());
     const spentByCategory = {};
     transactions
       .filter(t => t.type !== 'income' && monthKey(t.timestamp) === curKey)
@@ -81,5 +83,54 @@ const Stats = (() => {
     });
   }
 
-  return { summarize, budgetUsage };
+  // 計算「單一月份」或「整年」的收支總計、依類別明細、依付款方式明細
+  // period: { type: 'month'|'year', year, month(0-11，僅 month 模式需要) }
+  // categories: DB.getCategories() 全部（收入＋支出）；paymentMethods: DB.getPaymentMethods()
+  function summarizePeriod(transactions, period, categories, paymentMethods) {
+    const filtered = transactions.filter(t => {
+      const d = new Date(t.timestamp);
+      if (period.type === 'year') return d.getFullYear() === period.year;
+      return d.getFullYear() === period.year && d.getMonth() === period.month;
+    });
+
+    const income = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expense = filtered.filter(t => t.type !== 'income').reduce((s, t) => s + t.amount, 0);
+
+    function byCategory(txType) {
+      const known = categories.filter(c => c.type === txType);
+      const sums = {};
+      filtered.filter(t => t.type === txType).forEach(t => {
+        sums[t.category] = (sums[t.category] || 0) + t.amount;
+      });
+      const rows = known.map(c => ({ label: c.name, icon: c.icon, value: sums[c.name] || 0 }));
+      Object.keys(sums).forEach(name => {
+        if (!known.some(c => c.name === name)) rows.push({ label: name, icon: '🏷️', value: sums[name] });
+      });
+      return rows;
+    }
+
+    function byPayment() {
+      const sums = {};
+      let unassigned = 0;
+      filtered.filter(t => t.type !== 'income').forEach(t => {
+        if (t.paymentMethod) sums[t.paymentMethod] = (sums[t.paymentMethod] || 0) + t.amount;
+        else unassigned += t.amount;
+      });
+      const rows = paymentMethods.map(p => ({ label: p.name, icon: p.icon, value: sums[p.name] || 0 }));
+      Object.keys(sums).forEach(name => {
+        if (!paymentMethods.some(p => p.name === name)) rows.push({ label: name, icon: '🏷️', value: sums[name] });
+      });
+      if (unassigned > 0) rows.push({ label: '未指定', icon: '❔', value: unassigned });
+      return rows;
+    }
+
+    return {
+      income, expense, net: income - expense, count: filtered.length,
+      incomeByCategory: byCategory('income'),
+      expenseByCategory: byCategory('expense'),
+      paymentBreakdown: byPayment()
+    };
+  }
+
+  return { summarize, budgetUsage, summarizePeriod };
 })();

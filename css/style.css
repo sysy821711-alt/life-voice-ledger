@@ -549,8 +549,72 @@ main {
 .chart-empty { fill: var(--text-muted); font-size: 12px; }
 .chart-empty-text { text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0; }
 .chart-label { fill: var(--text-muted); font-size: 9px; }
+.donut-hole { fill: var(--card-bg); }
+.donut-center-label { fill: var(--text); font-size: 15px; font-weight: 600; }
 
 .bar-chart-scroll { overflow-x: auto; }
+
+.period-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.period-nav-btn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.period-label {
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 96px;
+  text-align: center;
+}
+
+.breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.breakdown-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 12px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.breakdown-table th:last-child, .breakdown-table td:last-child {
+  text-align: right;
+}
+
+.breakdown-table td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.breakdown-table tr:last-child td { border-bottom: none; }
+
+.breakdown-total-row td {
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.breakdown-table td.income { color: var(--income); }
+.breakdown-table td.expense { color: var(--danger); }
 
 .pie-legend {
   display: flex;

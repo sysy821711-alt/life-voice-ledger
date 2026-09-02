@@ -102,21 +102,39 @@
     <h2 class="section-title">統計</h2>
     <select id="stats-book-select" aria-label="統計範圍"></select>
 
-    <div class="stats-summary stats-summary-grid">
-      <div class="stats-summary-item">
-        <div class="stats-summary-label">收入</div>
-        <div id="stats-income" class="stats-summary-value income">0</div>
-      </div>
-      <div class="stats-summary-item">
-        <div class="stats-summary-label">支出</div>
-        <div id="stats-expense" class="stats-summary-value expense">0</div>
-      </div>
-      <div class="stats-summary-item">
-        <div class="stats-summary-label">結餘</div>
-        <div id="stats-net" class="stats-summary-value">0</div>
-      </div>
+    <div class="type-toggle" id="stats-period-type-toggle">
+      <button type="button" class="type-btn active" data-type="month">月</button>
+      <button type="button" class="type-btn" data-type="year">年</button>
     </div>
-    <div id="stats-count" class="stats-count">共 0 筆</div>
+    <div class="period-nav">
+      <button type="button" id="period-prev-btn" class="period-nav-btn" aria-label="上一個期間">‹</button>
+      <span id="period-label" class="period-label"></span>
+      <button type="button" id="period-next-btn" class="period-nav-btn" aria-label="下一個期間">›</button>
+    </div>
+
+    <div class="stats-card">
+      <h3>收支總計</h3>
+      <div id="summary-table"></div>
+    </div>
+
+    <div class="stats-card">
+      <h3>收入統計</h3>
+      <div id="income-table"></div>
+      <div id="income-pie-chart" class="pie-chart"></div>
+      <div id="income-pie-legend" class="pie-legend"></div>
+    </div>
+
+    <div class="stats-card">
+      <h3>支出統計</h3>
+      <div id="expense-table"></div>
+      <div id="pie-chart" class="pie-chart"></div>
+      <div id="pie-legend" class="pie-legend"></div>
+    </div>
+
+    <div class="stats-card">
+      <h3>付款方式統計</h3>
+      <div id="payment-table"></div>
+    </div>
 
     <div class="stats-card">
       <h3>每月收支趨勢</h3>
@@ -124,14 +142,8 @@
       <p id="stats-change-rate" class="change-rate"></p>
     </div>
 
-    <div class="stats-card">
-      <h3>支出依類別分佈</h3>
-      <div id="pie-chart" class="pie-chart"></div>
-      <div id="pie-legend" class="pie-legend"></div>
-    </div>
-
-    <div class="stats-card">
-      <h3>本月預算使用狀況</h3>
+    <div class="stats-card" id="budget-card">
+      <h3 id="budget-card-title">本月預算使用狀況</h3>
       <div id="budget-usage"></div>
     </div>
   </section>

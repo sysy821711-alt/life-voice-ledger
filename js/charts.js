@@ -65,10 +65,11 @@ function svgEl(tag, attrs) {
   return node;
 }
 
-function renderPieChart(container, data) {
+// centerLabel 給的話會挖空中間變成甜甜圈圖，並在中間放一行文字（例如「收入」／「支出」）
+function renderPieChart(container, data, centerLabel) {
   container.innerHTML = '';
   const total = data.reduce((s, d) => s + d.value, 0);
-  const size = 200, r = 90, cx = size / 2, cy = size / 2;
+  const size = 200, r = 90, innerR = 52, cx = size / 2, cy = size / 2;
   const svg = svgEl('svg', { viewBox: `0 0 ${size} ${size}`, width: '100%', height: size });
 
   if (total <= 0) {
@@ -98,6 +99,15 @@ function renderPieChart(container, data) {
     svg.appendChild(path);
     angleStart = angleEnd;
   });
+
+  const hole = svgEl('circle', { cx, cy, r: innerR, class: 'donut-hole' });
+  svg.appendChild(hole);
+  if (centerLabel) {
+    const label = svgEl('text', { x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'middle', class: 'donut-center-label' });
+    label.textContent = centerLabel;
+    svg.appendChild(label);
+  }
+
   container.appendChild(svg);
 }
 

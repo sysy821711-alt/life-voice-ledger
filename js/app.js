@@ -1,5 +1,6 @@
 // 主控制器：分頁切換、事件綁定、畫面渲染
 (function () {
+  const now = new Date();
   const state = {
     recognizedText: '',
     pendingTx: null,
@@ -9,7 +10,10 @@
     recurringType: 'expense',
     historyTypeFilter: '',
     statsFilterTouched: false,
-    categoryManageType: 'expense'
+    categoryManageType: 'expense',
+    statsPeriodType: 'month',
+    statsPeriodYear: now.getFullYear(),
+    statsPeriodMonth: now.getMonth()
   };
 
   const el = {};
@@ -20,7 +24,9 @@
       'confirm-form', 'amount-input', 'category-chips', 'payment-chips', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
       'history-list', 'history-empty', 'stats-book-select',
-      'stats-income', 'stats-expense', 'stats-net', 'stats-count',
+      'stats-period-type-toggle', 'period-prev-btn', 'period-next-btn', 'period-label',
+      'summary-table', 'income-table', 'income-pie-chart', 'income-pie-legend',
+      'expense-table', 'payment-table', 'budget-card', 'budget-card-title',
       'trend-chart', 'stats-change-rate', 'pie-chart', 'pie-legend', 'budget-usage',
       'book-list', 'book-form', 'book-name-input', 'book-currency-input',
       'dictation-area', 'dictation-input', 'dictation-parse-btn',
@@ -52,6 +58,7 @@
     bindBookTab();
     bindRecurringTab();
     bindCategoryManageTab();
+    bindStatsPeriod();
     el.statsBookSelect.addEventListener('change', () => {
       state.statsFilterTouched = true;
       renderStats();
@@ -438,6 +445,74 @@
   }
 
   // ---------- Stats tab ----------
+  function bindStatsPeriod() {
+    bindTypeToggle(el.statsPeriodTypeToggle, (type) => {
+      state.statsPeriodType = type;
+      const today = new Date();
+      state.statsPeriodYear = today.getFullYear();
+      state.statsPeriodMonth = today.getMonth();
+      renderStats();
+    });
+    el.periodPrevBtn.addEventListener('click', () => shiftStatsPeriod(-1));
+    el.periodNextBtn.addEventListener('click', () => shiftStatsPeriod(1));
+  }
+
+  function shiftStatsPeriod(delta) {
+    if (state.statsPeriodType === 'year') {
+      state.statsPeriodYear += delta;
+    } else {
+      let m = state.statsPeriodMonth + delta;
+      let y = state.statsPeriodYear;
+      while (m < 0) { m += 12; y -= 1; }
+      while (m > 11) { m -= 12; y += 1; }
+      state.statsPeriodMonth = m;
+      state.statsPeriodYear = y;
+    }
+    renderStats();
+  }
+
+  function periodLabelText() {
+    return state.statsPeriodType === 'year'
+      ? `${state.statsPeriodYear}年`
+      : `${state.statsPeriodYear}年${state.statsPeriodMonth + 1}月`;
+  }
+
+  function renderSummaryTable(container, income, expense, net) {
+    container.innerHTML = `
+      <table class="breakdown-table">
+        <thead><tr><th>項目</th><th>金額</th></tr></thead>
+        <tbody>
+          <tr><td>💰 收入</td><td class="income">${income.toLocaleString()}</td></tr>
+          <tr><td>💸 支出</td><td class="expense">${expense.toLocaleString()}</td></tr>
+          <tr class="breakdown-total-row"><td>總計</td><td class="${net < 0 ? 'expense' : 'income'}">${net.toLocaleString()}</td></tr>
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderBreakdownTable(container, rows, totalLabel, totalValue) {
+    let html = '<table class="breakdown-table"><thead><tr><th>類別</th><th>合計</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      html += `<tr><td>${r.icon} ${escapeHtml(r.label)}</td><td>${r.value.toLocaleString()}</td></tr>`;
+    });
+    html += `<tr class="breakdown-total-row"><td>${escapeHtml(totalLabel)}</td><td>${totalValue.toLocaleString()}</td></tr>`;
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function renderPieLegend(container, rows, total) {
+    container.innerHTML = '';
+    rows.forEach((d) => {
+      const percent = total > 0 ? (d.value / total * 100) : 0;
+      const row = document.createElement('div');
+      row.className = 'legend-row';
+      row.innerHTML = `<span class="legend-dot" style="background:${getCategoryColor(d.label)}"></span>
+        <span class="legend-label">${d.icon} ${d.label}</span>
+        <span class="legend-value">${d.value.toLocaleString()}（${percent.toFixed(0)}%）</span>`;
+      container.appendChild(row);
+    });
+  }
+
   function renderStats() {
     const books = DB.getBooks();
     const prevValue = el.statsBookSelect.value;
@@ -461,42 +536,50 @@
 
     const bookId = el.statsBookSelect.value || null;
     const transactions = DB.getTransactionsByBook(bookId);
-    const summary = Stats.summarize(transactions);
-    const book = books.find(b => b.id === bookId);
-    const currency = bookId && book ? book.currency : '';
 
-    el.statsIncome.textContent = `${currency} ${summary.income.toLocaleString()}`;
-    el.statsExpense.textContent = `${currency} ${summary.expense.toLocaleString()}`;
-    el.statsNet.textContent = `${currency} ${summary.net.toLocaleString()}`;
-    el.statsNet.classList.toggle('negative', summary.net < 0);
-    el.statsCount.textContent = `共 ${summary.count} 筆`;
+    el.periodLabel.textContent = periodLabelText();
+    const period = state.statsPeriodType === 'year'
+      ? { type: 'year', year: state.statsPeriodYear }
+      : { type: 'month', year: state.statsPeriodYear, month: state.statsPeriodMonth };
+    const periodSummary = Stats.summarizePeriod(transactions, period, DB.getCategories(), DB.getPaymentMethods());
 
-    renderGroupedBarChart(el.trendChart, summary.monthlyData);
-    if (summary.expenseChangeRate == null) {
+    renderSummaryTable(el.summaryTable, periodSummary.income, periodSummary.expense, periodSummary.net);
+    renderBreakdownTable(el.incomeTable, periodSummary.incomeByCategory, '收入總計', periodSummary.income);
+    renderBreakdownTable(el.expenseTable, periodSummary.expenseByCategory, '支出總計', periodSummary.expense);
+    renderBreakdownTable(el.paymentTable, periodSummary.paymentBreakdown, '支出總計', periodSummary.expense);
+
+    const incomeChartData = periodSummary.incomeByCategory.filter(d => d.value > 0);
+    renderPieChart(el.incomePieChart, incomeChartData, '收入');
+    renderPieLegend(el.incomePieLegend, incomeChartData, periodSummary.income);
+
+    const expenseChartData = periodSummary.expenseByCategory.filter(d => d.value > 0);
+    renderPieChart(el.pieChart, expenseChartData, '支出');
+    renderPieLegend(el.pieLegend, expenseChartData, periodSummary.expense);
+
+    // 每月收支趨勢／變化率：看全部歷史月份，跟上面挑選的單一期間分開顯示
+    const allTimeSummary = Stats.summarize(transactions);
+    renderGroupedBarChart(el.trendChart, allTimeSummary.monthlyData);
+    if (allTimeSummary.expenseChangeRate == null) {
       el.statsChangeRate.textContent = '';
     } else {
-      const rate = summary.expenseChangeRate;
+      const rate = allTimeSummary.expenseChangeRate;
       el.statsChangeRate.textContent = `本月支出較上月${rate >= 0 ? '增加' : '減少'} ${Math.abs(rate).toFixed(1)}%`;
       el.statsChangeRate.classList.toggle('negative', rate > 0);
     }
 
-    renderPieChart(el.pieChart, summary.expenseCategoryData);
-    el.pieLegend.innerHTML = '';
-    summary.expenseCategoryData.forEach((d) => {
-      const row = document.createElement('div');
-      row.className = 'legend-row';
-      row.innerHTML = `<span class="legend-dot" style="background:${getCategoryColor(d.label)}"></span>
-        <span class="legend-label">${d.label}</span>
-        <span class="legend-value">${d.value.toLocaleString()}（${d.percent.toFixed(0)}%）</span>`;
-      el.pieLegend.appendChild(row);
-    });
-
-    if (!bookId) {
-      el.budgetUsage.innerHTML = '<p class="chart-empty-text">請選擇特定帳本以查看預算使用狀況</p>';
+    // 預算是「每月」的概念，切到年度檢視時先不顯示
+    if (state.statsPeriodType === 'year') {
+      el.budgetCard.classList.add('hidden');
     } else {
-      const budgets = DB.getBudgets(bookId);
-      const usage = Stats.budgetUsage(transactions, budgets);
-      renderBudgetBars(el.budgetUsage, usage);
+      el.budgetCard.classList.remove('hidden');
+      el.budgetCardTitle.textContent = `${periodLabelText()}預算使用狀況`;
+      if (!bookId) {
+        el.budgetUsage.innerHTML = '<p class="chart-empty-text">請選擇特定帳本以查看預算使用狀況</p>';
+      } else {
+        const budgets = DB.getBudgets(bookId);
+        const usage = Stats.budgetUsage(transactions, budgets, state.statsPeriodYear, state.statsPeriodMonth);
+        renderBudgetBars(el.budgetUsage, usage);
+      }
     }
   }
 
