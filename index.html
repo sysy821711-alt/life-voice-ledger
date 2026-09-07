@@ -250,7 +250,7 @@
       <h3>資料備份</h3>
       <p class="backup-hint">資料只存在這個裝置的這個 App 圖示裡（瀏覽器本機儲存），無法像 iCloud 一樣自動跨裝置同步，建議定期匯出備份，避免手機清除資料或不小心刪除圖示時遺失紀錄。</p>
       <button id="export-json-btn" class="secondary-btn full-width">匯出全部資料（JSON 備份）</button>
-      <button id="export-csv-btn" class="secondary-btn full-width">匯出目前帳本（CSV，可用 Excel 開）</button>
+      <button id="export-excel-btn" class="secondary-btn full-width">匯出目前帳本統計報表（Excel）</button>
       <label class="import-label">
         匯入備份檔（只會新增，不會覆蓋現有資料）
         <input type="file" id="import-file-input" accept="application/json,.json">
@@ -277,6 +277,7 @@
   </button>
 </nav>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="js/db.js"></script>
 <script src="js/speech.js"></script>
 <script src="js/charts.js"></script>

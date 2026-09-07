@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v16';
+const CACHE_NAME = 'voice-ledger-v17';
 const APP_SHELL = [
   './',
   './index.html',
@@ -11,10 +11,17 @@ const APP_SHELL = [
   './js/app.js',
   './icons/icon.svg'
 ];
+// 匯出 Excel 用的外部函式庫：非必要資源，快取失敗不該讓整個安裝失敗
+const OPTIONAL_SHELL = [
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(APP_SHELL);
+      await Promise.all(OPTIONAL_SHELL.map((url) => cache.add(url).catch(() => {})));
+    })
   );
   self.skipWaiting();
 });

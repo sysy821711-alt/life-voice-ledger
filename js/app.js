@@ -31,7 +31,7 @@
       'book-list', 'book-form', 'book-name-input', 'book-currency-input',
       'dictation-area', 'dictation-input', 'dictation-parse-btn',
       'confirm-form-title', 'datetime-input',
-      'export-json-btn', 'export-csv-btn', 'import-file-input',
+      'export-json-btn', 'export-excel-btn', 'import-file-input',
       'type-toggle', 'confirm-type-toggle', 'history-type-filter',
       'recurring-list', 'recurring-form', 'recurring-note-input', 'recurring-amount-input',
       'recurring-category-chips', 'recurring-payment-chips', 'recurring-frequency-input', 'recurring-start-input',
@@ -707,7 +707,7 @@
     });
 
     el.exportJsonBtn.addEventListener('click', exportJson);
-    el.exportCsvBtn.addEventListener('click', exportCsv);
+    el.exportExcelBtn.addEventListener('click', exportExcel);
     el.importFileInput.addEventListener('change', handleImportFile);
   }
 
@@ -734,40 +734,98 @@
     downloadBlob(`生活記帳備份-${todayStamp()}.json`, blob);
   }
 
-  function csvEscape(value) {
-    const str = String(value == null ? '' : value);
-    if (/[",\n]/.test(str)) {
-      return '"' + str.replace(/"/g, '""') + '"';
-    }
-    return str;
+  function formatDateOnly(timestamp) {
+    const d = new Date(timestamp);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  function exportCsv() {
+  // 粗略估計字串顯示寬度（中日韓字元算 2 個半形寬），用來讓每欄自動貼合內容
+  function textWidth(str) {
+    let len = 0;
+    for (const ch of String(str == null ? '' : str)) {
+      len += /[　-鿿＀-￯]/.test(ch) ? 2 : 1;
+    }
+    return len;
+  }
+
+  function sheetFromRows(rows) {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const widths = [];
+    rows.forEach(row => {
+      row.forEach((cell, i) => {
+        widths[i] = Math.max(widths[i] || 0, textWidth(cell));
+      });
+    });
+    ws['!cols'] = widths.map(w => ({ wch: Math.min(Math.max(w + 2, 6), 40) }));
+    return ws;
+  }
+
+  function exportExcel() {
+    if (typeof XLSX === 'undefined') {
+      alert('匯出功能需要先連上網路載入一次所需元件，請確認網路連線後再試一次');
+      return;
+    }
     const bookId = DB.getCurrentBookId();
     if (!bookId) {
       alert('請先建立並選擇一個帳本');
       return;
     }
     const book = DB.getBooks().find(b => b.id === bookId);
-    const transactions = DB.getTransactionsByBook(bookId).sort((a, b) => a.timestamp - b.timestamp);
-    const rows = [['日期時間', '類型', '類別', '金額', '幣別', '付款方式', '備註', '語音原文']];
-    transactions.forEach(tx => {
-      rows.push([
-        toDatetimeLocalValue(tx.timestamp).replace('T', ' '),
-        tx.type === 'income' ? '收入' : '支出',
-        tx.category,
-        tx.amount,
-        book ? book.currency : '',
-        tx.paymentMethod || '',
-        tx.note,
-        tx.rawText
-      ]);
-    });
-    const csvBody = rows.map(row => row.map(csvEscape).join(',')).join('\r\n');
-    // 加上 UTF-8 BOM，讓 Excel 開啟時中文不會亂碼
-    const blob = new Blob(['﻿' + csvBody], { type: 'text/csv;charset=utf-8' });
     const bookName = book ? book.name : '帳本';
-    downloadBlob(`${bookName}-收支紀錄-${todayStamp()}.csv`, blob);
+    const transactions = DB.getTransactionsByBook(bookId).sort((a, b) => a.timestamp - b.timestamp);
+    const categories = DB.getCategories();
+    const paymentMethods = DB.getPaymentMethods();
+
+    const incomeTx = transactions.filter(t => t.type === 'income');
+    const expenseTx = transactions.filter(t => t.type !== 'income');
+    const income = incomeTx.reduce((s, t) => s + t.amount, 0);
+    const expense = expenseTx.reduce((s, t) => s + t.amount, 0);
+
+    const incomeRows = [['日期', '金額', '類別', '備註']];
+    incomeTx.forEach(t => {
+      incomeRows.push([formatDateOnly(t.timestamp), t.amount, `${DB.getCategoryIcon(t.category)} ${t.category}`, t.note || t.rawText || '']);
+    });
+
+    const expenseRows = [['日期', '金額', '類別', '備註', '付款方式']];
+    expenseTx.forEach(t => {
+      const paymentLabel = t.paymentMethod ? `${DB.getPaymentMethodIcon(t.paymentMethod)} ${t.paymentMethod}` : '';
+      expenseRows.push([formatDateOnly(t.timestamp), t.amount, `${DB.getCategoryIcon(t.category)} ${t.category}`, t.note || t.rawText || '', paymentLabel]);
+    });
+
+    const summaryRows = [
+      ['類別', '合計'],
+      ['💰 收入', income],
+      ['💸 支出', expense],
+      ['總計', income - expense]
+    ];
+
+    const incomeStatRows = [['類別', '合計']];
+    Stats.categoryBreakdown(transactions, 'income', categories).forEach(r => {
+      incomeStatRows.push([`${r.icon} ${r.label}`, r.value]);
+    });
+    incomeStatRows.push(['收入總計', income]);
+
+    const expenseStatRows = [['類別', '合計']];
+    Stats.categoryBreakdown(transactions, 'expense', categories).forEach(r => {
+      expenseStatRows.push([`${r.icon} ${r.label}`, r.value]);
+    });
+    expenseStatRows.push(['支出總計', expense]);
+
+    const paymentStatRows = [['付款方式', '合計']];
+    Stats.paymentBreakdown(transactions, paymentMethods).forEach(r => {
+      paymentStatRows.push([`${r.icon} ${r.label}`, r.value]);
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheetFromRows(incomeRows), '收入');
+    XLSX.utils.book_append_sheet(wb, sheetFromRows(expenseRows), '支出');
+    XLSX.utils.book_append_sheet(wb, sheetFromRows(summaryRows), '收支總計');
+    XLSX.utils.book_append_sheet(wb, sheetFromRows(incomeStatRows), '收入統計');
+    XLSX.utils.book_append_sheet(wb, sheetFromRows(expenseStatRows), '支出統計');
+    XLSX.utils.book_append_sheet(wb, sheetFromRows(paymentStatRows), '付款方式統計');
+
+    XLSX.writeFile(wb, `${bookName}-收支統計-${todayStamp()}.xlsx`);
   }
 
   function handleImportFile(e) {
