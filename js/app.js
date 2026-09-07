@@ -24,7 +24,7 @@
       'confirm-form', 'confirm-book-select', 'amount-input', 'category-chips', 'payment-chips', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
       'history-list', 'history-empty', 'stats-book-select',
-      'stats-period-type-toggle', 'period-prev-btn', 'period-next-btn', 'period-label',
+      'stats-period-type-toggle', 'period-prev-btn', 'period-next-btn', 'period-label', 'export-period-excel-btn',
       'summary-table', 'income-table', 'income-pie-chart', 'income-pie-legend',
       'expense-table', 'payment-table', 'budget-card', 'budget-card-title',
       'trend-chart', 'stats-change-rate', 'pie-chart', 'pie-legend', 'budget-usage',
@@ -457,6 +457,7 @@
     });
     el.periodPrevBtn.addEventListener('click', () => shiftStatsPeriod(-1));
     el.periodNextBtn.addEventListener('click', () => shiftStatsPeriod(1));
+    el.exportPeriodExcelBtn.addEventListener('click', () => exportExcel(currentStatsPeriod()));
   }
 
   function shiftStatsPeriod(delta) {
@@ -473,10 +474,21 @@
     renderStats();
   }
 
-  function periodLabelText() {
+  function periodLabelFor(period) {
+    if (!period) return '全部';
+    return period.type === 'year'
+      ? `${period.year}年`
+      : `${period.year}年${period.month + 1}月`;
+  }
+
+  function currentStatsPeriod() {
     return state.statsPeriodType === 'year'
-      ? `${state.statsPeriodYear}年`
-      : `${state.statsPeriodYear}年${state.statsPeriodMonth + 1}月`;
+      ? { type: 'year', year: state.statsPeriodYear }
+      : { type: 'month', year: state.statsPeriodYear, month: state.statsPeriodMonth };
+  }
+
+  function periodLabelText() {
+    return periodLabelFor(currentStatsPeriod());
   }
 
   function renderSummaryTable(container, income, expense, net) {
@@ -540,9 +552,8 @@
     const transactions = DB.getTransactionsByBook(bookId);
 
     el.periodLabel.textContent = periodLabelText();
-    const period = state.statsPeriodType === 'year'
-      ? { type: 'year', year: state.statsPeriodYear }
-      : { type: 'month', year: state.statsPeriodYear, month: state.statsPeriodMonth };
+    el.exportPeriodExcelBtn.textContent = `匯出 ${periodLabelText()} 的 Excel`;
+    const period = currentStatsPeriod();
     const periodSummary = Stats.summarizePeriod(transactions, period, DB.getCategories(), DB.getPaymentMethods());
 
     renderSummaryTable(el.summaryTable, periodSummary.income, periodSummary.expense, periodSummary.net);
@@ -707,7 +718,7 @@
     });
 
     el.exportJsonBtn.addEventListener('click', exportJson);
-    el.exportExcelBtn.addEventListener('click', exportExcel);
+    el.exportExcelBtn.addEventListener('click', () => exportExcel());
     el.importFileInput.addEventListener('change', handleImportFile);
   }
 
@@ -761,7 +772,8 @@
     return ws;
   }
 
-  function exportExcel() {
+  // period: { type: 'month'|'year', year, month } 指定只匯出該月／該年；不傳則匯出全部歷史紀錄
+  function exportExcel(period) {
     if (typeof XLSX === 'undefined') {
       alert('匯出功能需要先連上網路載入一次所需元件，請確認網路連線後再試一次');
       return;
@@ -773,7 +785,12 @@
     }
     const book = DB.getBooks().find(b => b.id === bookId);
     const bookName = book ? book.name : '帳本';
-    const transactions = DB.getTransactionsByBook(bookId).sort((a, b) => a.timestamp - b.timestamp);
+    const allTransactions = DB.getTransactionsByBook(bookId).sort((a, b) => a.timestamp - b.timestamp);
+    const transactions = Stats.filterByPeriod(allTransactions, period);
+    if (period && transactions.length === 0) {
+      alert('這個期間沒有任何收支紀錄，無法匯出');
+      return;
+    }
     const categories = DB.getCategories();
     const paymentMethods = DB.getPaymentMethods();
 
@@ -833,7 +850,7 @@
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, sheetFromRows(rows), '收支統計');
-    XLSX.writeFile(wb, `${bookName}-收支統計-${todayStamp()}.xlsx`);
+    XLSX.writeFile(wb, `${bookName}-${periodLabelFor(period)}收支統計-${todayStamp()}.xlsx`);
   }
 
   function handleImportFile(e) {

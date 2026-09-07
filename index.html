@@ -115,6 +115,7 @@
       <span id="period-label" class="period-label"></span>
       <button type="button" id="period-next-btn" class="period-nav-btn" aria-label="下一個期間">›</button>
     </div>
+    <button type="button" id="export-period-excel-btn" class="secondary-btn full-width">匯出這個期間的 Excel</button>
 
     <div class="stats-card">
       <h3>收支總計</h3>
@@ -250,7 +251,7 @@
       <h3>資料備份</h3>
       <p class="backup-hint">資料只存在這個裝置的這個 App 圖示裡（瀏覽器本機儲存），無法像 iCloud 一樣自動跨裝置同步，建議定期匯出備份，避免手機清除資料或不小心刪除圖示時遺失紀錄。</p>
       <button id="export-json-btn" class="secondary-btn full-width">匯出全部資料（JSON 備份）</button>
-      <button id="export-excel-btn" class="secondary-btn full-width">匯出目前帳本統計報表（Excel）</button>
+      <button id="export-excel-btn" class="secondary-btn full-width">匯出全部收支統計報表（Excel）</button>
       <label class="import-label">
         匯入備份檔（只會新增，不會覆蓋現有資料）
         <input type="file" id="import-file-input" accept="application/json,.json">

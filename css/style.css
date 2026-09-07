@@ -562,6 +562,10 @@ main {
   margin-bottom: 16px;
 }
 
+#export-period-excel-btn {
+  margin-bottom: 16px;
+}
+
 .period-nav-btn {
   border: 1px solid var(--border);
   background: var(--card-bg);

@@ -115,14 +115,20 @@ const Stats = (() => {
     return rows;
   }
 
-  // 計算「單一月份」或「整年」的收支總計、依類別明細、依付款方式明細
-  // period: { type: 'month'|'year', year, month(0-11，僅 month 模式需要) }
-  function summarizePeriod(transactions, period, categories, paymentMethods) {
-    const filtered = transactions.filter(t => {
+  // 篩選出落在指定「單一月份」或「整年」裡的紀錄
+  // period: { type: 'month'|'year', year, month(0-11，僅 month 模式需要) }（period 為 null/undefined 時不篩選，回傳全部）
+  function filterByPeriod(transactions, period) {
+    if (!period) return transactions;
+    return transactions.filter(t => {
       const d = new Date(t.timestamp);
       if (period.type === 'year') return d.getFullYear() === period.year;
       return d.getFullYear() === period.year && d.getMonth() === period.month;
     });
+  }
+
+  // 計算「單一月份」或「整年」的收支總計、依類別明細、依付款方式明細
+  function summarizePeriod(transactions, period, categories, paymentMethods) {
+    const filtered = filterByPeriod(transactions, period);
 
     const income = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = filtered.filter(t => t.type !== 'income').reduce((s, t) => s + t.amount, 0);
@@ -135,5 +141,5 @@ const Stats = (() => {
     };
   }
 
-  return { summarize, budgetUsage, summarizePeriod, categoryBreakdown, paymentBreakdown };
+  return { summarize, budgetUsage, summarizePeriod, categoryBreakdown, paymentBreakdown, filterByPeriod };
 })();
