@@ -21,7 +21,7 @@
   function cacheEls() {
     const ids = [
       'book-select', 'mic-btn', 'mic-status', 'transcript', 'manual-entry-link', 'mic-area', 'record-mode-toggle',
-      'confirm-form', 'amount-input', 'category-chips', 'payment-chips', 'note-input',
+      'confirm-form', 'confirm-book-select', 'amount-input', 'category-chips', 'payment-chips', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
       'history-list', 'history-empty', 'stats-book-select',
       'stats-period-type-toggle', 'period-prev-btn', 'period-next-btn', 'period-label',
@@ -275,10 +275,11 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function openConfirmForm({ type, amount, category, note, rawText, timestamp, paymentMethod }) {
+  function openConfirmForm({ type, amount, category, note, rawText, timestamp, paymentMethod, bookId }) {
     state.pendingTx = { rawText: rawText || '' };
     state.confirmType = type || 'expense';
     setActiveTypeBtn(el.confirmTypeToggle, state.confirmType);
+    populateBookSelect(el.confirmBookSelect, DB.getBooks(), bookId || DB.getCurrentBookId());
     el.amountInput.value = amount != null ? amount : '';
     el.noteInput.value = note || '';
     el.datetimeInput.value = toDatetimeLocalValue(timestamp || Date.now());
@@ -305,7 +306,7 @@
   }
 
   function saveTransaction() {
-    const bookId = DB.getCurrentBookId();
+    const bookId = el.confirmBookSelect.value || DB.getCurrentBookId();
     if (!bookId) {
       alert('請先建立並選擇一個帳本');
       return;
@@ -327,7 +328,7 @@
     const timestamp = isNaN(parsedTimestamp) ? Date.now() : parsedTimestamp;
 
     if (state.editingTxId) {
-      DB.updateTransaction(state.editingTxId, { type, amount, category, note, rawText, timestamp, paymentMethod });
+      DB.updateTransaction(state.editingTxId, { bookId, type, amount, category, note, rawText, timestamp, paymentMethod });
     } else {
       DB.addTransaction({ bookId, type, amount, category, note, rawText, timestamp, paymentMethod });
     }
@@ -429,7 +430,8 @@
           note: tx.note,
           rawText: tx.rawText,
           timestamp: tx.timestamp,
-          paymentMethod: tx.paymentMethod
+          paymentMethod: tx.paymentMethod,
+          bookId: tx.bookId
         });
         switchTab('record');
       });
@@ -889,22 +891,35 @@
       li.className = 'manage-item';
       li.innerHTML = `
         <span class="manage-item-label">${cat.icon} ${escapeHtml(cat.name)}</span>
-        ${cat.builtin ? '<span class="manage-item-tag">內建</span>' : '<button class="manage-item-delete" aria-label="刪除">✕</button>'}
+        <button class="manage-item-edit" aria-label="編輯">✎</button>
+        <button class="manage-item-delete" aria-label="刪除">✕</button>
       `;
-      if (!cat.builtin) {
-        li.querySelector('.manage-item-delete').addEventListener('click', () => {
-          if (confirm(`確定刪除類別「${cat.name}」？（已記錄的舊紀錄不會被刪除，只是這個類別不會再出現在選單）`)) {
-            DB.deleteCategory(cat.id);
-            renderCategoryManageList();
-            renderBudgetForm();
-          }
-        });
-      }
+      li.querySelector('.manage-item-edit').addEventListener('click', () => {
+        const icon = prompt('輸入類別圖示（可留空表示不變）', cat.icon);
+        if (icon === null) return;
+        const name = prompt('輸入類別名稱', cat.name);
+        if (name === null) return;
+        const trimmedName = name.trim();
+        if (!trimmedName) {
+          alert('名稱不能是空白');
+          return;
+        }
+        DB.updateCategory(cat.id, { name: trimmedName, icon: icon.trim() || cat.icon });
+        renderCategoryManageList();
+        renderBudgetForm();
+      });
+      li.querySelector('.manage-item-delete').addEventListener('click', () => {
+        if (confirm(`確定刪除類別「${cat.name}」？（已記錄的舊紀錄不會被刪除，只是這個類別不會再出現在選單）`)) {
+          DB.deleteCategory(cat.id);
+          renderCategoryManageList();
+          renderBudgetForm();
+        }
+      });
       el.categoryManageList.appendChild(li);
     });
   }
 
-  // 付款方式沒有像類別那樣被語音辨識綁定，內建的也可以刪除
+  // 內建類別／付款方式都不再受保護，可以直接刪除或改名
   function renderPaymentManageList() {
     const methods = DB.getPaymentMethods();
     el.paymentManageList.innerHTML = '';
@@ -913,8 +928,22 @@
       li.className = 'manage-item';
       li.innerHTML = `
         <span class="manage-item-label">${pm.icon} ${escapeHtml(pm.name)}</span>
+        <button class="manage-item-edit" aria-label="編輯">✎</button>
         <button class="manage-item-delete" aria-label="刪除">✕</button>
       `;
+      li.querySelector('.manage-item-edit').addEventListener('click', () => {
+        const icon = prompt('輸入付款方式圖示（可留空表示不變）', pm.icon);
+        if (icon === null) return;
+        const name = prompt('輸入付款方式名稱', pm.name);
+        if (name === null) return;
+        const trimmedName = name.trim();
+        if (!trimmedName) {
+          alert('名稱不能是空白');
+          return;
+        }
+        DB.updatePaymentMethod(pm.id, { name: trimmedName, icon: icon.trim() || pm.icon });
+        renderPaymentManageList();
+      });
       li.querySelector('.manage-item-delete').addEventListener('click', () => {
         if (confirm(`確定刪除付款方式「${pm.name}」？`)) {
           DB.deletePaymentMethod(pm.id);

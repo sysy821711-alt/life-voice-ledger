@@ -350,17 +350,55 @@ const DB = (() => {
     return category;
   }
 
+  // 內建類別也可以刪除／改名，跟付款方式一樣不再特別保護
   function deleteCategory(id) {
     const all = getCategoriesRaw();
     const category = all.find(c => c.id === id);
-    if (!category || category.builtin) return false;
+    if (!category) return false;
     writeJSON(CATEGORIES_KEY, all.filter(c => c.id !== id));
     // 同時清掉所有帳本裡，指向這個已刪除類別的預算設定
     saveBudgets(getBudgetsRaw().filter(b => b.category !== category.name));
     return true;
   }
 
-  // ---------- Payment methods（全帳本共用；內建付款方式不可刪除） ----------
+  // 編輯類別（改名、換圖示）。改名時同步更新所有帳本裡引用舊名稱的收支紀錄與預算，
+  // 這樣改名不會讓過去的紀錄變成「找不到類別」的孤兒資料。
+  function updateCategory(id, patch) {
+    const all = getCategoriesRaw();
+    const idx = all.findIndex(c => c.id === id);
+    if (idx === -1) return null;
+    const old = all[idx];
+    const updated = Object.assign({}, old, patch);
+    all[idx] = updated;
+    writeJSON(CATEGORIES_KEY, all);
+
+    if (patch.name && patch.name !== old.name) {
+      const transactions = getTransactions();
+      let txChanged = false;
+      transactions.forEach(t => {
+        if (t.type === old.type && t.category === old.name) {
+          t.category = patch.name;
+          txChanged = true;
+        }
+      });
+      if (txChanged) saveTransactions(transactions);
+
+      if (old.type === 'expense') {
+        const budgets = getBudgetsRaw();
+        let budgetChanged = false;
+        budgets.forEach(b => {
+          if (b.category === old.name) {
+            b.category = patch.name;
+            budgetChanged = true;
+          }
+        });
+        if (budgetChanged) saveBudgets(budgets);
+      }
+    }
+    return updated;
+  }
+
+  // ---------- Payment methods（全帳本共用） ----------
   function getPaymentMethods() {
     return readJSON(PAYMENT_METHODS_KEY, []);
   }
@@ -381,12 +419,36 @@ const DB = (() => {
     return method;
   }
 
-  // 付款方式沒有像類別那樣被語音關鍵字比對綁定，內建的也可以刪除
+  // 付款方式沒有像類別那樣被語音關鍵字比對綁定，內建的也可以刪除／改名
   function deletePaymentMethod(id) {
     const all = getPaymentMethods();
     if (!all.some(p => p.id === id)) return false;
     writeJSON(PAYMENT_METHODS_KEY, all.filter(p => p.id !== id));
     return true;
+  }
+
+  // 改名時同步更新所有帳本裡引用舊名稱的收支紀錄，避免變成孤兒資料
+  function updatePaymentMethod(id, patch) {
+    const all = getPaymentMethods();
+    const idx = all.findIndex(p => p.id === id);
+    if (idx === -1) return null;
+    const old = all[idx];
+    const updated = Object.assign({}, old, patch);
+    all[idx] = updated;
+    writeJSON(PAYMENT_METHODS_KEY, all);
+
+    if (patch.name && patch.name !== old.name) {
+      const transactions = getTransactions();
+      let changed = false;
+      transactions.forEach(t => {
+        if (t.paymentMethod === old.name) {
+          t.paymentMethod = patch.name;
+          changed = true;
+        }
+      });
+      if (changed) saveTransactions(transactions);
+    }
+    return updated;
   }
 
   // ---------- 記帳輸入模式（語音優先 / 手動優先，裝置本機設定，不隨備份匯出） ----------
@@ -491,8 +553,8 @@ const DB = (() => {
     getTransactions, addTransaction, updateTransaction, deleteTransaction, getTransactionsByBook,
     getBudgets, setBudget,
     getRecurrings, addRecurring, updateRecurring, deleteRecurring, applyDueRecurrings,
-    getCategories, getCategoryIcon, addCategory, deleteCategory,
-    getPaymentMethods, getPaymentMethodIcon, addPaymentMethod, deletePaymentMethod,
+    getCategories, getCategoryIcon, addCategory, deleteCategory, updateCategory,
+    getPaymentMethods, getPaymentMethodIcon, addPaymentMethod, deletePaymentMethod, updatePaymentMethod,
     getRecordMode, setRecordMode,
     exportAll, importAll
   };

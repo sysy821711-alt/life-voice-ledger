@@ -58,6 +58,10 @@
           <button type="button" class="type-btn" data-type="income">收入</button>
         </div>
         <label class="field">
+          <span>帳本</span>
+          <select id="confirm-book-select" aria-label="這筆收支所屬帳本"></select>
+        </label>
+        <label class="field">
           <span>金額</span>
           <input type="number" id="amount-input" inputmode="decimal" min="0" step="0.01" placeholder="0">
         </label>
@@ -218,7 +222,7 @@
 
     <div class="backup-section">
       <h3>類別管理</h3>
-      <p class="backup-hint">新增自訂類別並指定圖示（直接貼上 emoji 即可）。內建類別無法刪除，但可以在這裡加入你自己的分類。</p>
+      <p class="backup-hint">新增自訂類別並指定圖示（直接貼上 emoji 即可）。內建類別一樣可以編輯或刪除，改名時已記錄的舊紀錄也會一起更新。</p>
       <div class="type-toggle" id="category-manage-type-toggle">
         <button type="button" class="type-btn active" data-type="expense">支出類別</button>
         <button type="button" class="type-btn" data-type="income">收入類別</button>

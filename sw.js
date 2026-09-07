@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v13';
+const CACHE_NAME = 'voice-ledger-v16';
 const APP_SHELL = [
   './',
   './index.html',
@@ -31,10 +31,12 @@ self.addEventListener('activate', (event) => {
 // Network-first：每次都先試著抓最新版本，只有在離線／連線失敗時才退回快取。
 // （改版前是「快取優先，有快取就永遠不再檢查網路」，會導致已安裝在手機主畫面的
 // App 卡在舊版本，即使程式碼已經更新、重開 App 也不會抓到新版，只能手動清除資料才會恢復。）
+// fetch() 用 cache:'no-store'，強制略過瀏覽器自己的 HTTP 快取，確保真的打到網路，
+// 不是「呼叫了 fetch() 但其實被瀏覽器自己的快取默默擋下來」那種假的 network-first。
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));

@@ -506,7 +506,7 @@ main {
   color: var(--text-muted);
 }
 
-.manage-item-delete {
+.manage-item-edit, .manage-item-delete {
   border: none;
   background: none;
   color: var(--text-muted);
