@@ -817,14 +817,22 @@
       paymentStatRows.push([`${r.icon} ${r.label}`, r.value]);
     });
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, sheetFromRows(incomeRows), '收入');
-    XLSX.utils.book_append_sheet(wb, sheetFromRows(expenseRows), '支出');
-    XLSX.utils.book_append_sheet(wb, sheetFromRows(summaryRows), '收支總計');
-    XLSX.utils.book_append_sheet(wb, sheetFromRows(incomeStatRows), '收入統計');
-    XLSX.utils.book_append_sheet(wb, sheetFromRows(expenseStatRows), '支出統計');
-    XLSX.utils.book_append_sheet(wb, sheetFromRows(paymentStatRows), '付款方式統計');
+    // 全部表格依序疊在同一個工作表裡，每個表格前面加一列標題、後面留一列空白隔開
+    const rows = [];
+    const addSection = (title, sectionRows) => {
+      rows.push([title]);
+      sectionRows.forEach(r => rows.push(r));
+      rows.push([]);
+    };
+    addSection('收支總計', summaryRows);
+    addSection('收入統計', incomeStatRows);
+    addSection('支出統計', expenseStatRows);
+    addSection('付款方式統計', paymentStatRows);
+    addSection('收入明細', incomeRows);
+    addSection('支出明細', expenseRows);
 
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheetFromRows(rows), '收支統計');
     XLSX.writeFile(wb, `${bookName}-收支統計-${todayStamp()}.xlsx`);
   }
 
