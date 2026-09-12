@@ -21,7 +21,7 @@
   function cacheEls() {
     const ids = [
       'book-select', 'mic-btn', 'mic-status', 'transcript', 'manual-entry-link', 'mic-area', 'record-mode-toggle',
-      'confirm-form', 'confirm-book-select', 'amount-input', 'category-chips', 'payment-chips', 'note-input',
+      'confirm-form', 'confirm-book-select', 'amount-input', 'category-chips', 'payment-chips', 'payment-chips-label', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
       'history-list', 'history-empty', 'stats-book-select',
       'stats-period-type-toggle', 'period-prev-btn', 'period-next-btn', 'period-label', 'export-period-excel-btn',
@@ -34,7 +34,7 @@
       'export-json-btn', 'export-excel-btn', 'import-file-input',
       'type-toggle', 'confirm-type-toggle', 'history-type-filter',
       'recurring-list', 'recurring-form', 'recurring-note-input', 'recurring-amount-input',
-      'recurring-category-chips', 'recurring-payment-chips', 'recurring-frequency-input', 'recurring-start-input',
+      'recurring-category-chips', 'recurring-payment-chips', 'recurring-payment-chips-label', 'recurring-frequency-input', 'recurring-start-input',
       'recurring-type-toggle', 'budget-form',
       'category-manage-type-toggle', 'category-manage-list', 'new-category-icon', 'new-category-name', 'new-category-btn',
       'payment-manage-list', 'new-payment-icon', 'new-payment-name', 'new-payment-btn'
@@ -192,6 +192,11 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
+  // 收入要「收款」、支出要「付款」，欄位標籤依類型顯示對應的字
+  function paymentLabelFor(type) {
+    return type === 'income' ? '收款方式（選填）' : '付款方式（選填）';
+  }
+
   // ---------- Record tab ----------
   function bindRecordTab() {
     bindTypeToggle(el.typeToggle, (type) => { state.pendingType = type; });
@@ -201,6 +206,7 @@
       const categories = DB.getCategories(type);
       const fallback = categories.length ? categories[categories.length - 1].name : '其他';
       renderCategoryChips(el.categoryChips, type, fallback);
+      el.paymentChipsLabel.textContent = paymentLabelFor(type);
     });
 
     el.recordModeToggle.addEventListener('click', (e) => {
@@ -283,6 +289,7 @@
     state.pendingTx = { rawText: rawText || '' };
     state.confirmType = type || 'expense';
     setActiveTypeBtn(el.confirmTypeToggle, state.confirmType);
+    el.paymentChipsLabel.textContent = paymentLabelFor(state.confirmType);
     populateBookSelect(el.confirmBookSelect, DB.getBooks(), bookId || DB.getCurrentBookId());
     el.amountInput.value = amount != null ? amount : '';
     el.noteInput.value = note || '';
@@ -616,9 +623,11 @@
       const categories = DB.getCategories(type);
       const fallback = categories.length ? categories[categories.length - 1].name : '其他';
       renderCategoryChips(el.recurringCategoryChips, type, fallback);
+      el.recurringPaymentChipsLabel.textContent = paymentLabelFor(type);
     });
     renderCategoryChips(el.recurringCategoryChips, state.recurringType, '其他');
     renderPaymentChips(el.recurringPaymentChips, null);
+    el.recurringPaymentChipsLabel.textContent = paymentLabelFor(state.recurringType);
     el.recurringStartInput.value = todayDateStr();
 
     el.recurringForm.addEventListener('submit', (e) => {
