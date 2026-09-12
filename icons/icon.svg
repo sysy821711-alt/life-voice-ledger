@@ -1,75 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="100" fill="#F0DDC0"/>
+  <rect width="512" height="512" rx="110" fill="#FDC94B"/>
 
-  <!-- 植物葉子 -->
-  <path d="M96 240c-6-34 10-62 40-70-2 32-14 56-40 70z" fill="#8FAE86"/>
-  <path d="M100 246c-30-14-40-44-30-74 24 16 36 42 30 74z" fill="#7FA075"/>
+  <!-- 銅板堆疊 -->
+  <ellipse cx="124" cy="420" rx="64" ry="18" fill="#D9A62E"/>
+  <circle cx="124" cy="376" r="64" fill="#F7C948" stroke="#D9A62E" stroke-width="7"/>
+  <text x="124" y="396" font-family="Arial, sans-serif" font-size="56" font-weight="700" text-anchor="middle" fill="#8A5A20">$</text>
 
-  <!-- 亮片 -->
-  <rect x="86" y="122" width="10" height="34" rx="5" fill="#E8C468" transform="rotate(-18 91 139)"/>
-  <rect x="122" y="108" width="8" height="26" rx="4" fill="#E8C468" transform="rotate(-18 126 121)"/>
+  <!-- 筆記本陰影 -->
+  <rect x="184" y="146" width="224" height="292" rx="28" fill="#E7A93A" opacity="0.35"/>
 
-  <!-- 對話框＋長條圖 -->
-  <path d="M362 108h96a20 20 0 0 1 20 20v54a20 20 0 0 1-20 20h-52l-18 22v-22h-26a20 20 0 0 1-20-20v-54a20 20 0 0 1 20-20z" fill="#FFFFFF"/>
-  <rect x="392" y="168" width="14" height="24" fill="#8B6B4A"/>
-  <rect x="412" y="152" width="14" height="40" fill="#8B6B4A"/>
-  <rect x="432" y="140" width="14" height="52" fill="#8B6B4A"/>
+  <!-- 筆記本主體 -->
+  <rect x="176" y="136" width="224" height="292" rx="28" fill="#FFFDF7"/>
 
-  <!-- 筆記本 -->
-  <rect x="150" y="272" width="280" height="192" rx="20" fill="#FBF6EC" stroke="#D8C8AE" stroke-width="3"/>
-  <circle cx="196" cy="272" r="13" fill="none" stroke="#8B6B4A" stroke-width="10"/>
-  <circle cx="240" cy="272" r="13" fill="none" stroke="#8B6B4A" stroke-width="10"/>
-  <circle cx="284" cy="272" r="13" fill="none" stroke="#8B6B4A" stroke-width="10"/>
-  <circle cx="328" cy="272" r="13" fill="none" stroke="#8B6B4A" stroke-width="10"/>
+  <!-- 筆記本螺旋環 -->
+  <circle cx="228" cy="138" r="19" fill="none" stroke="#F2A93B" stroke-width="15"/>
+  <circle cx="330" cy="138" r="19" fill="none" stroke="#F2A93B" stroke-width="15"/>
 
-  <!-- 側邊分類標籤 -->
-  <rect x="422" y="330" width="18" height="30" rx="4" fill="#8FAE86"/>
-  <rect x="422" y="366" width="18" height="30" rx="4" fill="#F0A0A0"/>
-  <rect x="422" y="402" width="18" height="30" rx="4" fill="#E8C468"/>
+  <!-- 笑臉 -->
+  <ellipse cx="228" cy="260" rx="15" ry="17" fill="#4A3527"/>
+  <ellipse cx="330" cy="260" rx="15" ry="17" fill="#4A3527"/>
+  <circle cx="196" cy="288" r="16" fill="#FFC2C2" opacity="0.8"/>
+  <circle cx="362" cy="288" r="16" fill="#FFC2C2" opacity="0.8"/>
+  <path d="M256 288q23 26 46 0" fill="none" stroke="#4A3527" stroke-width="9" stroke-linecap="round"/>
 
-  <text x="290" y="356" font-family="'Segoe UI', Arial, sans-serif" font-size="40" font-weight="700" text-anchor="middle" fill="#6B4F3A">My Budget</text>
-  <path d="M283 378c-6-8-20-6-20 4 0 8 12 16 20 22 8-6 20-14 20-22 0-10-14-12-20-4z" fill="#D98080"/>
-  <rect x="192" y="408" width="196" height="6" rx="3" fill="#E3D6BF"/>
-  <rect x="192" y="432" width="196" height="6" rx="3" fill="#E3D6BF"/>
+  <!-- 收支清單：彩色圓點＋橫線 -->
+  <circle cx="212" cy="332" r="10" fill="#F2994A"/>
+  <rect x="238" y="324" width="130" height="16" rx="8" fill="#EAE4D6"/>
+  <circle cx="212" cy="368" r="10" fill="#2FBF71"/>
+  <rect x="238" y="360" width="130" height="16" rx="8" fill="#EAE4D6"/>
+  <circle cx="212" cy="404" r="10" fill="#4F8EF7"/>
+  <rect x="238" y="396" width="130" height="16" rx="8" fill="#EAE4D6"/>
 
-  <!-- 貓咪頭 -->
-  <path d="M205 190l-32-58 56 18z" fill="#FFFFFF" stroke="#6B4F3A" stroke-width="7" stroke-linejoin="round"/>
-  <path d="M212 182l-18-38 36 14z" fill="#F6C6C6"/>
-  <path d="M358 190l32-58-56 18z" fill="#B99B76" stroke="#6B4F3A" stroke-width="7" stroke-linejoin="round"/>
-  <path d="M351 182l18-38-36 14z" fill="#F6C6C6"/>
+  <!-- 鉛筆 -->
+  <g transform="translate(378,300) rotate(38)">
+    <rect x="-16" y="-92" width="32" height="150" rx="10" fill="#FFCB4C"/>
+    <rect x="-16" y="-92" width="32" height="30" rx="10" fill="#F28B82"/>
+    <rect x="-16" y="-66" width="32" height="10" fill="#4A3527"/>
+    <path d="M-16 58L16 58L0 92Z" fill="#4A3527"/>
+  </g>
 
-  <ellipse cx="282" cy="235" rx="98" ry="88" fill="#FFFFFF" stroke="#6B4F3A" stroke-width="7"/>
-  <path d="M210 165a98 88 0 0 1 90-18 98 88 0 0 0-72 70 98 88 0 0 1-18-52z" fill="#B99B76"/>
-
-  <circle cx="246" cy="232" r="9" fill="#4A3527"/>
-  <path d="M300 234q13-12 26 0" fill="none" stroke="#4A3527" stroke-width="7" stroke-linecap="round"/>
-  <circle cx="222" cy="262" r="14" fill="#F6A8A8" opacity="0.75"/>
-  <circle cx="342" cy="262" r="14" fill="#F6A8A8" opacity="0.75"/>
-  <path d="M276 254q6 8 12 0" fill="none" stroke="#4A3527" stroke-width="5" stroke-linecap="round"/>
-
-  <path d="M195 240l-34-6M195 250l-36 4" stroke="#6B4F3A" stroke-width="4" stroke-linecap="round"/>
-  <path d="M369 240l34-6M369 250l36 4" stroke="#6B4F3A" stroke-width="4" stroke-linecap="round"/>
-
-  <!-- 貓掌 -->
-  <ellipse cx="238" cy="278" rx="26" ry="20" fill="#FFFFFF" stroke="#6B4F3A" stroke-width="6"/>
-  <ellipse cx="336" cy="278" rx="26" ry="20" fill="#FFFFFF" stroke="#6B4F3A" stroke-width="6"/>
-
-  <!-- 金幣 -->
-  <ellipse cx="104" cy="440" rx="58" ry="16" fill="#D9A62E"/>
-  <ellipse cx="104" cy="412" rx="58" ry="16" fill="#EFC24C"/>
-  <circle cx="130" cy="404" r="58" fill="#F7C948" stroke="#D9A62E" stroke-width="7"/>
-  <text x="130" y="424" font-family="Arial, sans-serif" font-size="52" font-weight="700" text-anchor="middle" fill="#8A5A20">$</text>
-
-  <!-- 計算機 -->
-  <rect x="352" y="386" width="112" height="140" rx="16" fill="#8FAE86"/>
-  <rect x="368" y="400" width="80" height="30" rx="6" fill="#6F9070"/>
-  <rect x="368" y="440" width="20" height="18" rx="5" fill="#FFFFFF"/>
-  <rect x="396" y="440" width="20" height="18" rx="5" fill="#FFFFFF"/>
-  <rect x="424" y="440" width="20" height="18" rx="5" fill="#FFFFFF"/>
-  <rect x="368" y="466" width="20" height="18" rx="5" fill="#FFFFFF"/>
-  <rect x="396" y="466" width="20" height="18" rx="5" fill="#FFFFFF"/>
-  <rect x="424" y="466" width="20" height="18" rx="5" fill="#F2A25E"/>
-  <rect x="368" y="492" width="20" height="18" rx="5" fill="#FFFFFF"/>
-  <rect x="396" y="492" width="20" height="18" rx="5" fill="#FFFFFF"/>
-  <rect x="424" y="492" width="20" height="18" rx="5" fill="#FFFFFF"/>
+  <!-- 亮片點綴 -->
+  <path d="M420 92l7 20 20 7-20 7-7 20-7-20-20-7 20-7z" fill="#FFFFFF"/>
 </svg>

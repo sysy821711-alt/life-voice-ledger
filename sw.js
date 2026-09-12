@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v23';
+const CACHE_NAME = 'voice-ledger-v24';
 const APP_SHELL = [
   './',
   './index.html',
@@ -9,7 +9,10 @@ const APP_SHELL = [
   './js/charts.js',
   './js/stats.js',
   './js/app.js',
-  './icons/icon.svg'
+  './icons/icon.svg',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 // 匯出 Excel 用的外部函式庫：非必要資源，快取失敗不該讓整個安裝失敗
 const OPTIONAL_SHELL = [
