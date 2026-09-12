@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v19';
+const CACHE_NAME = 'voice-ledger-v20';
 const APP_SHELL = [
   './',
   './index.html',

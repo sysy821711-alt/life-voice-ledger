@@ -249,8 +249,12 @@
     Speech.start({
       lang: 'zh-TW',
       onResult: ({ finalText, interimText }) => {
-        el.transcript.textContent = finalText || interimText;
-        if (finalText) state.recognizedText = finalText;
+        const text = finalText || interimText;
+        el.transcript.textContent = text;
+        // 有結果就先記著（不管是不是「最終」結果）：有些裝置的語音辨識結束時
+        // 從沒送過 isFinal 的結果，只靠 finalText 會讓畫面卡在只顯示逐字稿、
+        // 什麼都沒發生——退而求其次採用當下看到的逐字稿內容繼續往下走。
+        if (text) state.recognizedText = text;
       },
       onEnd: () => {
         el.micBtn.classList.remove('listening');
