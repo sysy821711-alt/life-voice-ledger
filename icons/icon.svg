@@ -1,9 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#4F8EF7"/>
-  <g fill="#FFFFFF">
-    <path d="M256 320a64 64 0 0 0 64-64V160a64 64 0 0 0-128 0v96a64 64 0 0 0 64 64z"/>
-    <path d="M357 235a13 13 0 0 0-13 13 88 88 0 0 1-176 0 13 13 0 0 0-26 0 114 114 0 0 0 101 113v41h-32a13 13 0 0 0 0 26h90a13 13 0 0 0 0-26h-32v-41a114 114 0 0 0 101-113 13 13 0 0 0-13-13z"/>
+  <rect width="512" height="512" rx="110" fill="#FDC94B"/>
+
+  <!-- 銅板堆疊 -->
+  <ellipse cx="124" cy="420" rx="64" ry="18" fill="#D9A62E"/>
+  <circle cx="124" cy="376" r="64" fill="#F7C948" stroke="#D9A62E" stroke-width="7"/>
+  <text x="124" y="396" font-family="Arial, sans-serif" font-size="56" font-weight="700" text-anchor="middle" fill="#8A5A20">$</text>
+
+  <!-- 筆記本陰影 -->
+  <rect x="184" y="146" width="224" height="292" rx="28" fill="#E7A93A" opacity="0.35"/>
+
+  <!-- 筆記本主體 -->
+  <rect x="176" y="136" width="224" height="292" rx="28" fill="#FFFDF7"/>
+
+  <!-- 筆記本螺旋環 -->
+  <circle cx="228" cy="138" r="19" fill="none" stroke="#F2A93B" stroke-width="15"/>
+  <circle cx="330" cy="138" r="19" fill="none" stroke="#F2A93B" stroke-width="15"/>
+
+  <!-- 笑臉 -->
+  <ellipse cx="228" cy="260" rx="15" ry="17" fill="#4A3527"/>
+  <ellipse cx="330" cy="260" rx="15" ry="17" fill="#4A3527"/>
+  <circle cx="196" cy="288" r="16" fill="#FFC2C2" opacity="0.8"/>
+  <circle cx="362" cy="288" r="16" fill="#FFC2C2" opacity="0.8"/>
+  <path d="M256 288q23 26 46 0" fill="none" stroke="#4A3527" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- 收支清單：彩色圓點＋橫線 -->
+  <circle cx="212" cy="332" r="10" fill="#F2994A"/>
+  <rect x="238" y="324" width="130" height="16" rx="8" fill="#EAE4D6"/>
+  <circle cx="212" cy="368" r="10" fill="#2FBF71"/>
+  <rect x="238" y="360" width="130" height="16" rx="8" fill="#EAE4D6"/>
+  <circle cx="212" cy="404" r="10" fill="#4F8EF7"/>
+  <rect x="238" y="396" width="130" height="16" rx="8" fill="#EAE4D6"/>
+
+  <!-- 鉛筆 -->
+  <g transform="translate(378,300) rotate(38)">
+    <rect x="-16" y="-92" width="32" height="150" rx="10" fill="#FFCB4C"/>
+    <rect x="-16" y="-92" width="32" height="30" rx="10" fill="#F28B82"/>
+    <rect x="-16" y="-66" width="32" height="10" fill="#4A3527"/>
+    <path d="M-16 58L16 58L0 92Z" fill="#4A3527"/>
   </g>
-  <circle cx="380" cy="150" r="46" fill="#F7C948"/>
-  <text x="380" y="164" font-family="Arial, sans-serif" font-size="52" font-weight="700" text-anchor="middle" fill="#1F2430">$</text>
+
+  <!-- 亮片點綴 -->
+  <path d="M420 92l7 20 20 7-20 7-7 20-7-20-20-7 20-7z" fill="#FFFFFF"/>
 </svg>
