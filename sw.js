@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v24';
+const CACHE_NAME = 'voice-ledger-v25';
 const APP_SHELL = [
   './',
   './index.html',
@@ -9,7 +9,7 @@ const APP_SHELL = [
   './js/charts.js',
   './js/stats.js',
   './js/app.js',
-  './icons/icon.svg',
+  './icons/icon-32.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png'
