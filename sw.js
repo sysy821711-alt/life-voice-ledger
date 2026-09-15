@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v25';
+const CACHE_NAME = 'voice-ledger-v26';
 const APP_SHELL = [
   './',
   './index.html',
@@ -45,11 +45,22 @@ self.addEventListener('activate', (event) => {
 // 不是「呼叫了 fetch() 但其實被瀏覽器自己的快取默默擋下來」那種假的 network-first。
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) return;
+  const isNavigation = event.request.mode === 'navigate';
+  if (!isNavigation) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
+        if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+        return response;
+      }))
+    );
+    return;
+  }
   event.respondWith(
     fetch(event.request, { cache: 'no-store' })
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
         return response;
       })
       .catch(() => {

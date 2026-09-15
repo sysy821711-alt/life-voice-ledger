@@ -56,7 +56,12 @@ const DB = (() => {
   }
 
   function writeJSON(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error('儲存資料失敗', key, error);
+      throw new Error('資料無法儲存，可能是瀏覽器儲存空間已滿。請先匯出備份後再試一次。');
+    }
   }
 
   // ---------- 一次性資料搬遷：舊版行程/花費 -> 新版帳本/收支紀錄 ----------
@@ -296,6 +301,8 @@ const DB = (() => {
   const MAX_CATCH_UP = 24; // 避免長時間沒開 App 時一次補太多筆
   function applyDueRecurrings() {
     const recurrings = getRecurringsRaw();
+    const transactions = getTransactions();
+    const occurrenceKeys = new Set(transactions.map(t => t.recurringOccurrenceKey).filter(Boolean));
     const todayStr = toDateStr(new Date());
     let addedCount = 0;
     let changed = false;
@@ -304,23 +311,25 @@ const DB = (() => {
       if (!r.active) return;
       let guard = 0;
       while (r.nextDate <= todayStr && guard < MAX_CATCH_UP) {
-        addTransaction({
-          bookId: r.bookId,
-          type: r.type,
-          amount: r.amount,
-          category: r.category,
-          note: r.note,
-          rawText: '[定期] ' + (r.note || r.category),
-          timestamp: new Date(r.nextDate + 'T12:00:00').getTime(),
-          paymentMethod: r.paymentMethod || ''
-        });
-        addedCount++;
+        const occurrenceKey = `${r.id}:${r.nextDate}`;
+        if (!occurrenceKeys.has(occurrenceKey)) {
+          transactions.push({
+            id: uid(), bookId: r.bookId, type: r.type === 'income' ? 'income' : 'expense',
+            amount: Number(r.amount), category: r.category || '其他', note: r.note || '',
+            rawText: '[定期] ' + (r.note || r.category),
+            timestamp: new Date(r.nextDate + 'T12:00:00').getTime(),
+            paymentMethod: r.paymentMethod || '', recurringOccurrenceKey: occurrenceKey
+          });
+          occurrenceKeys.add(occurrenceKey);
+          addedCount++;
+        }
         r.nextDate = computeNextDate(r.nextDate, r.frequency, r.dayOfMonth, r.weekday);
         changed = true;
         guard++;
       }
     });
 
+    if (addedCount > 0) saveTransactions(transactions);
     if (changed) saveRecurrings(recurrings);
     return addedCount;
   }
@@ -368,6 +377,7 @@ const DB = (() => {
     const idx = all.findIndex(c => c.id === id);
     if (idx === -1) return null;
     const old = all[idx];
+    if (patch.name && all.some(c => c.id !== id && c.type === old.type && c.name === patch.name)) return null;
     const updated = Object.assign({}, old, patch);
     all[idx] = updated;
     writeJSON(CATEGORIES_KEY, all);
@@ -433,6 +443,7 @@ const DB = (() => {
     const idx = all.findIndex(p => p.id === id);
     if (idx === -1) return null;
     const old = all[idx];
+    if (patch.name && all.some(p => p.id !== id && p.name === patch.name)) return null;
     const updated = Object.assign({}, old, patch);
     all[idx] = updated;
     writeJSON(PAYMENT_METHODS_KEY, all);
@@ -485,8 +496,8 @@ const DB = (() => {
     const existingBookIds = new Set(books.map(b => b.id));
     let addedBooks = 0;
     incomingBooks.forEach(b => {
-      if (b && b.id && !existingBookIds.has(b.id)) {
-        books.push(b);
+      if (b && typeof b.id === 'string' && typeof b.name === 'string' && b.name.trim() && !existingBookIds.has(b.id)) {
+        books.push({ id: b.id, name: b.name.trim().slice(0, 100), currency: String(b.currency || 'TWD').slice(0, 6) });
         existingBookIds.add(b.id);
         addedBooks++;
       }
@@ -497,8 +508,16 @@ const DB = (() => {
     const existingTxIds = new Set(transactions.map(t => t.id));
     let addedTx = 0;
     incomingTx.forEach(t => {
-      if (t && t.id && !existingTxIds.has(t.id)) {
-        transactions.push(Object.assign({ type: 'expense' }, t));
+      const amount = Number(t && t.amount);
+      const timestamp = Number(t && t.timestamp);
+      if (t && typeof t.id === 'string' && existingBookIds.has(t.bookId) && Number.isFinite(amount) && amount > 0 && Number.isFinite(timestamp) && !existingTxIds.has(t.id)) {
+        transactions.push({
+          id: t.id, bookId: t.bookId, type: t.type === 'income' ? 'income' : 'expense', amount,
+          category: String(t.category || '其他').slice(0, 100), note: String(t.note || '').slice(0, 1000),
+          rawText: String(t.rawText || '').slice(0, 1000), timestamp,
+          paymentMethod: String(t.paymentMethod || '').slice(0, 100),
+          recurringOccurrenceKey: t.recurringOccurrenceKey ? String(t.recurringOccurrenceKey).slice(0, 200) : undefined
+        });
         existingTxIds.add(t.id);
         addedTx++;
       }
@@ -529,8 +548,10 @@ const DB = (() => {
     const incomingCategories = Array.isArray(data && data.categories) ? data.categories : [];
     const categories = getCategoriesRaw();
     incomingCategories.forEach(c => {
-      if (c && c.name && c.type && !categories.some(existing => existing.type === c.type && existing.name === c.name)) {
-        categories.push(Object.assign({}, c, { id: uid() }));
+      const type = c && c.type === 'income' ? 'income' : 'expense';
+      const name = c && typeof c.name === 'string' ? c.name.trim().slice(0, 100) : '';
+      if (name && !categories.some(existing => existing.type === type && existing.name === name)) {
+        categories.push({ id: uid(), type, name, icon: String(c.icon || '📦').slice(0, 8), builtin: false });
       }
     });
     writeJSON(CATEGORIES_KEY, categories);
@@ -538,8 +559,9 @@ const DB = (() => {
     const incomingPaymentMethods = Array.isArray(data && data.paymentMethods) ? data.paymentMethods : [];
     const paymentMethods = getPaymentMethods();
     incomingPaymentMethods.forEach(p => {
-      if (p && p.name && !paymentMethods.some(existing => existing.name === p.name)) {
-        paymentMethods.push(Object.assign({}, p, { id: uid() }));
+      const name = p && typeof p.name === 'string' ? p.name.trim().slice(0, 100) : '';
+      if (name && !paymentMethods.some(existing => existing.name === name)) {
+        paymentMethods.push({ id: uid(), name, icon: String(p.icon || '💰').slice(0, 8), builtin: false });
       }
     });
     writeJSON(PAYMENT_METHODS_KEY, paymentMethods);

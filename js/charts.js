@@ -214,13 +214,23 @@ function renderBudgetBars(container, usageData) {
     const row = document.createElement('div');
     row.className = 'budget-row';
     const barColor = u.over ? EXPENSE_COLOR : getCategoryColor(u.category);
-    row.innerHTML = `
-      <div class="budget-row-top">
-        <span class="budget-category">${u.category}</span>
-        <span class="budget-value${u.over ? ' over' : ''}">${u.spent.toLocaleString()} / ${u.budget.toLocaleString()}</span>
-      </div>
-      <div class="budget-track"><div class="budget-fill" style="width:${u.percent}%;background:${barColor}"></div></div>
-    `;
+    const top = document.createElement('div');
+    top.className = 'budget-row-top';
+    const category = document.createElement('span');
+    category.className = 'budget-category';
+    category.textContent = u.category;
+    const value = document.createElement('span');
+    value.className = 'budget-value' + (u.over ? ' over' : '');
+    value.textContent = `${u.spent.toLocaleString()} / ${u.budget.toLocaleString()}`;
+    top.append(category, value);
+    const track = document.createElement('div');
+    track.className = 'budget-track';
+    const fill = document.createElement('div');
+    fill.className = 'budget-fill';
+    fill.style.width = `${Math.max(0, Math.min(100, Number(u.percent) || 0))}%`;
+    fill.style.background = barColor;
+    track.appendChild(fill);
+    row.append(top, track);
     container.appendChild(row);
   });
 }

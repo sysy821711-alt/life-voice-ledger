@@ -420,16 +420,16 @@
       item.innerHTML = `
         <div class="history-main">
           <div class="history-top">
-            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${catIcon} ${tx.category}</span>
+            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${escapeHtml(catIcon)} ${escapeHtml(tx.category)}</span>
             ${paymentBadge}
             <span class="history-date">${dateStr}</span>
           </div>
           <div class="history-note">${escapeHtml(tx.note || tx.rawText || '（無備註）')}</div>
         </div>
-        <div class="history-amount ${amountClass}">${sign}${currency} ${tx.amount.toLocaleString()}</div>
+        <div class="history-amount ${amountClass}">${sign}${escapeHtml(currency)} ${Number(tx.amount).toLocaleString()}</div>
         <div class="history-actions">
-          <button class="history-edit" data-id="${tx.id}" aria-label="編輯">✎</button>
-          <button class="history-delete" data-id="${tx.id}" aria-label="刪除">✕</button>
+          <button class="history-edit" aria-label="編輯">✎</button>
+          <button class="history-delete" aria-label="刪除">✕</button>
         </div>
       `;
       item.querySelector('.history-edit').addEventListener('click', () => {
@@ -518,7 +518,7 @@
   function renderBreakdownTable(container, rows, totalLabel, totalValue) {
     let html = '<table class="breakdown-table"><thead><tr><th>類別</th><th>合計</th></tr></thead><tbody>';
     rows.forEach(r => {
-      html += `<tr><td>${r.icon} ${escapeHtml(r.label)}</td><td>${r.value.toLocaleString()}</td></tr>`;
+      html += `<tr><td>${escapeHtml(r.icon)} ${escapeHtml(r.label)}</td><td>${Number(r.value).toLocaleString()}</td></tr>`;
     });
     html += `<tr class="breakdown-total-row"><td>${escapeHtml(totalLabel)}</td><td>${totalValue.toLocaleString()}</td></tr>`;
     html += '</tbody></table>';
@@ -532,7 +532,7 @@
       const row = document.createElement('div');
       row.className = 'legend-row';
       row.innerHTML = `<span class="legend-dot" style="background:${getCategoryColor(d.label)}"></span>
-        <span class="legend-label">${d.icon} ${d.label}</span>
+        <span class="legend-label">${escapeHtml(d.icon)} ${escapeHtml(d.label)}</span>
         <span class="legend-value">${d.value.toLocaleString()}（${percent.toFixed(0)}%）</span>`;
       container.appendChild(row);
     });
@@ -683,21 +683,21 @@
       const sign = r.type === 'income' ? '+' : '−';
       const amountClass = r.type === 'income' ? 'income' : 'expense';
       const paymentBadge = r.paymentMethod
-        ? `<span class="history-payment">${DB.getPaymentMethodIcon(r.paymentMethod)} ${escapeHtml(r.paymentMethod)}</span>`
+        ? `<span class="history-payment">${escapeHtml(DB.getPaymentMethodIcon(r.paymentMethod))} ${escapeHtml(r.paymentMethod)}</span>`
         : '';
       li.innerHTML = `
         <div class="history-main">
           <div class="history-top">
-            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${catIcon} ${r.category}</span>
+            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${escapeHtml(catIcon)} ${escapeHtml(r.category)}</span>
             ${paymentBadge}
-            <span class="history-date">${frequencyLabel(r)} · 下次 ${r.nextDate}</span>
+            <span class="history-date">${escapeHtml(frequencyLabel(r))} · 下次 ${escapeHtml(r.nextDate)}</span>
           </div>
           <div class="history-note">${escapeHtml(r.note || r.category)}</div>
         </div>
         <div class="history-amount ${amountClass}">${sign}${r.amount.toLocaleString()}</div>
         <div class="history-actions">
-          <button class="recurring-toggle" data-id="${r.id}" aria-label="啟用或暫停">${r.active ? '⏸' : '▶'}</button>
-          <button class="history-delete" data-id="${r.id}" aria-label="刪除">✕</button>
+          <button class="recurring-toggle" aria-label="啟用或暫停">${r.active ? '⏸' : '▶'}</button>
+          <button class="history-delete" aria-label="刪除">✕</button>
         </div>
       `;
       li.querySelector('.recurring-toggle').addEventListener('click', () => {
@@ -904,8 +904,8 @@
           <div class="trip-meta">幣別：${escapeHtml(book.currency)}</div>
         </div>
         <div class="trip-actions">
-          <button class="btn-select" data-id="${book.id}">選用</button>
-          <button class="btn-delete" data-id="${book.id}">刪除</button>
+          <button class="btn-select">選用</button>
+          <button class="btn-delete">刪除</button>
         </div>
       `;
       li.querySelector('.btn-select').addEventListener('click', () => {
@@ -935,7 +935,7 @@
     DB.getCategories('expense').filter(cat => cat.name !== '其他').forEach(cat => {
       const row = document.createElement('label');
       row.className = 'field budget-input-row';
-      row.innerHTML = `<span>${cat.icon} ${cat.name}</span><input type="number" min="0" step="1" placeholder="未設定" value="${budgetMap[cat.name] != null ? budgetMap[cat.name] : ''}">`;
+      row.innerHTML = `<span>${escapeHtml(cat.icon)} ${escapeHtml(cat.name)}</span><input type="number" min="0" step="1" placeholder="未設定" value="${budgetMap[cat.name] != null ? Number(budgetMap[cat.name]) : ''}">`;
       const input = row.querySelector('input');
       input.addEventListener('change', () => {
         const val = parseFloat(input.value);
@@ -986,7 +986,7 @@
       const li = document.createElement('li');
       li.className = 'manage-item';
       li.innerHTML = `
-        <span class="manage-item-label">${cat.icon} ${escapeHtml(cat.name)}</span>
+        <span class="manage-item-label">${escapeHtml(cat.icon)} ${escapeHtml(cat.name)}</span>
         <button class="manage-item-edit" aria-label="編輯">✎</button>
         <button class="manage-item-delete" aria-label="刪除">✕</button>
       `;
@@ -1000,7 +1000,10 @@
           alert('名稱不能是空白');
           return;
         }
-        DB.updateCategory(cat.id, { name: trimmedName, icon: icon.trim() || cat.icon });
+        if (!DB.updateCategory(cat.id, { name: trimmedName, icon: icon.trim() || cat.icon })) {
+          alert('已有同名類別，請使用其他名稱');
+          return;
+        }
         renderCategoryManageList();
         renderBudgetForm();
       });
@@ -1023,7 +1026,7 @@
       const li = document.createElement('li');
       li.className = 'manage-item';
       li.innerHTML = `
-        <span class="manage-item-label">${pm.icon} ${escapeHtml(pm.name)}</span>
+        <span class="manage-item-label">${escapeHtml(pm.icon)} ${escapeHtml(pm.name)}</span>
         <button class="manage-item-edit" aria-label="編輯">✎</button>
         <button class="manage-item-delete" aria-label="刪除">✕</button>
       `;
@@ -1037,7 +1040,10 @@
           alert('名稱不能是空白');
           return;
         }
-        DB.updatePaymentMethod(pm.id, { name: trimmedName, icon: icon.trim() || pm.icon });
+        if (!DB.updatePaymentMethod(pm.id, { name: trimmedName, icon: icon.trim() || pm.icon })) {
+          alert('已有同名付款方式，請使用其他名稱');
+          return;
+        }
         renderPaymentManageList();
       });
       li.querySelector('.manage-item-delete').addEventListener('click', () => {
