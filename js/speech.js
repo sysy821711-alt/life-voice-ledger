@@ -204,18 +204,24 @@ function parseReceiptText(text) {
 }
 
 // iPhone「捷徑」支援口述模式（shortcut=1）與收據 OCR 模式（shortcut=receipt）。
-// 收據建議放在 URL fragment（#shortcut=...），fragment 不會隨網頁請求送到主機。
+// 觸發旗標「shortcut=」一定要放在網址列的 query string（? 後面），不能只放在 fragment
+// （# 後面）：瀏覽器對「只有 # 後面不同」的網址視為同一頁的內部跳轉，如果那個分頁
+// 或已加入主畫面的 App 剛好還開著，並不會真的重新整理頁面，代表這支程式根本不會
+// 重新執行，捷徑等於完全沒反應。query string 有變化才保證瀏覽器一定會重新載入頁面。
+// 收據的 OCR 原文本身還是放在 fragment（#text=...），fragment 不會隨網頁請求送到主機。
 function getShortcutRequest(search, hash) {
-  const sources = [search || '', (hash || '').replace(/^#/, '')];
-  for (const source of sources) {
-    const params = new URLSearchParams(source);
-    const shortcut = params.get('shortcut');
-    if (shortcut !== '1' && shortcut !== 'receipt') continue;
-    const text = (params.get('text') || '').trim();
-    if (!text) continue;
-    return { mode: shortcut === 'receipt' ? 'receipt' : 'voice', text };
+  const searchParams = new URLSearchParams(search || '');
+  const shortcut = searchParams.get('shortcut');
+  if (shortcut !== '1' && shortcut !== 'receipt') return null;
+
+  if (shortcut === '1') {
+    const text = (searchParams.get('text') || '').trim();
+    return text ? { mode: 'voice', text } : null;
   }
-  return null;
+
+  const hashParams = new URLSearchParams((hash || '').replace(/^#/, ''));
+  const text = (hashParams.get('text') || '').trim();
+  return text ? { mode: 'receipt', text } : null;
 }
 
 function getShortcutText(search) {

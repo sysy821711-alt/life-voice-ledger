@@ -39,14 +39,15 @@ test('一般網址或空白文字不會觸發捷徑入口', () => {
   assert.equal(getShortcutText('?text=午餐180元'), '');
   assert.equal(getShortcutText('?shortcut=0&text=午餐180元'), '');
   assert.equal(getShortcutText('?shortcut=1&text=++'), '');
-  assert.equal(getShortcutRequest('?shortcut=receipt&text=++'), null);
+  assert.equal(getShortcutRequest('?shortcut=receipt', '#text=++'), null);
 });
 
-test('收據分享捷徑會使用 receipt 模式', () => {
-  const { getShortcutRequest, getShortcutText } = loadSpeech();
-  const request = getShortcutRequest('', '#shortcut=receipt&text=%E7%B8%BD%E8%A8%88%20180');
+test('收據分享捷徑會使用 receipt 模式，觸發旗標放在 query string 才會確保頁面真的重新整理', () => {
+  const { getShortcutRequest } = loadSpeech();
+  const request = getShortcutRequest('?shortcut=receipt', '#text=%E7%B8%BD%E8%A8%88%20180');
   assert.deepEqual({ ...request }, { mode: 'receipt', text: '總計 180' });
-  assert.equal(getShortcutText('?shortcut=receipt&text=總計180'), '');
+  // 觸發旗標只放在 fragment（舊格式）不該再被辨識，因為 fragment 單獨變化時瀏覽器不會重新整理頁面
+  assert.equal(getShortcutRequest('', '#shortcut=receipt&text=總計180'), null);
 });
 
 test('捷徑文字沿用既有支出與收入解析', () => {

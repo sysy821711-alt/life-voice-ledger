@@ -23,8 +23,10 @@
 6. 加入「文字」動作，輸入以下網址，並把最後的 `[URL 編碼]` 換成上一步的變數泡泡：
 
    ```text
-   https://sysy821711-alt.github.io/life-voice-ledger/#shortcut=receipt&text=[URL 編碼]
+   https://sysy821711-alt.github.io/life-voice-ledger/?shortcut=receipt#text=[URL 編碼]
    ```
+
+   注意「?」跟「#」的位置：`shortcut=receipt` 要放在「?」後面，`text=` 放在「#」後面。原因是手機瀏覽器只認得網址「?」後面那段的變化才會真的重新整理頁面；如果 `shortcut=receipt` 也放在「#」後面，遇到記帳貓網頁本來就開著（例如已加入主畫面、在背景待命），瀏覽器會當作同一頁的小跳轉，畫面完全不會重新整理，捷徑就會「沒反應」。收據辨識出來的文字依然放在「#」後面，不會被送到主機。
 
 7. 加入「URL」動作，輸入選上一步的「文字」。
 8. 加入「打開 URL」動作，輸入選上一步的「URL」。
@@ -63,7 +65,7 @@
 
 部署新版記帳貓後，可用以下網址測試收據模式：
 
-<https://sysy821711-alt.github.io/life-voice-ledger/#shortcut=receipt&text=%E5%85%A8%E8%81%AF%E7%A6%8F%E5%88%A9%E4%B8%AD%E5%BF%83%0A%E6%97%A5%E6%9C%9F%202026%2F09%2F18%2019%3A35%0A%E5%B0%8F%E8%A8%88%20160%0A%E7%A8%85%E9%A1%8D%208%0A%E7%B8%BD%E8%A8%88%20NT%24%20168%0AVISA>
+<https://sysy821711-alt.github.io/life-voice-ledger/?shortcut=receipt#text=%E5%85%A8%E8%81%AF%E7%A6%8F%E5%88%A9%E4%B8%AD%E5%BF%83%0A%E6%97%A5%E6%9C%9F%202026%2F09%2F18%2019%3A35%0A%E5%B0%8F%E8%A8%88%20160%0A%E7%A8%85%E9%A1%8D%208%0A%E7%B8%BD%E8%A8%88%20NT%24%20168%0AVISA>
 
 預期結果為：支出、金額 168、備註「全聯福利中心」、日期 2026/09/18 19:35、付款方式「信用卡」。
 

@@ -108,16 +108,15 @@
   }
 
   // 成功帶入後移除一次性參數，避免重新整理或返回頁面時再次彈出相同表單。
+  // shortcut/text 可能出現在 query string（口述模式）或 fragment（收據模式），兩邊都要清。
   function clearShortcutParams() {
     const url = new URL(window.location.href);
     url.searchParams.delete('shortcut');
     url.searchParams.delete('text');
     const fragmentParams = new URLSearchParams(url.hash.replace(/^#/, ''));
-    if (fragmentParams.has('shortcut')) {
-      fragmentParams.delete('shortcut');
-      fragmentParams.delete('text');
-      url.hash = fragmentParams.toString() ? `#${fragmentParams.toString()}` : '';
-    }
+    fragmentParams.delete('shortcut');
+    fragmentParams.delete('text');
+    url.hash = fragmentParams.toString() ? `#${fragmentParams.toString()}` : '';
     const cleanUrl = `${url.pathname}${url.search}${url.hash}`;
     window.history.replaceState(null, '', cleanUrl);
   }
