@@ -9,6 +9,8 @@
     confirmType: 'expense',
     recurringType: 'expense',
     historyTypeFilter: '',
+    historySearch: '',
+    monthCollapsed: {},
     statsFilterTouched: false,
     categoryManageType: 'expense',
     statsPeriodType: 'month',
@@ -23,7 +25,7 @@
       'book-select', 'mic-btn', 'mic-status', 'transcript', 'manual-entry-link', 'mic-area', 'record-mode-toggle',
       'confirm-form', 'confirm-book-select', 'amount-input', 'category-chips', 'payment-chips', 'payment-chips-label', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
-      'history-list', 'history-empty', 'stats-book-select',
+      'history-list', 'history-empty', 'history-search-input', 'stats-book-select',
       'stats-period-type-toggle', 'period-prev-btn', 'period-next-btn', 'period-label', 'export-period-excel-btn',
       'summary-table', 'income-table', 'income-pie-chart', 'income-pie-legend',
       'expense-table', 'payment-table', 'budget-card', 'budget-card-title',
@@ -437,68 +439,124 @@
       state.historyTypeFilter = type;
       renderHistory();
     });
+    el.historySearchInput.addEventListener('input', () => {
+      state.historySearch = el.historySearchInput.value.trim().toLowerCase();
+      renderHistory();
+    });
   }
 
   function renderHistory() {
     const bookId = DB.getCurrentBookId();
     const filter = state.historyTypeFilter ? { type: state.historyTypeFilter } : {};
-    const transactions = DB.getTransactionsByBook(bookId, filter).sort((a, b) => b.timestamp - a.timestamp);
+    const query = state.historySearch;
+    const transactions = DB.getTransactionsByBook(bookId, filter)
+      .filter(tx => !query || [tx.note, tx.rawText, tx.category, tx.paymentMethod]
+        .some(field => field && field.toLowerCase().includes(query)))
+      .sort((a, b) => b.timestamp - a.timestamp);
     el.historyList.innerHTML = '';
     el.historyEmpty.classList.toggle('hidden', transactions.length > 0);
     const book = DB.getBooks().find(b => b.id === bookId);
     const currency = book ? book.currency : '';
 
+    // 依「年-月」分組，長清單可以逐月收合；搜尋中則全部展開方便看結果
+    const groups = [];
+    const groupByKey = new Map();
     transactions.forEach(tx => {
-      const item = document.createElement('li');
-      item.className = 'history-item';
-      const date = new Date(tx.timestamp);
-      const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-      const badgeBg = getCategoryColor(tx.category) + '22';
-      const badgeText = getCategoryTextColor(tx.category);
-      const catIcon = DB.getCategoryIcon(tx.category);
-      const sign = tx.type === 'income' ? '+' : '−';
-      const amountClass = tx.type === 'income' ? 'income' : 'expense';
-      const paymentBadge = tx.paymentMethod
-        ? `<span class="history-payment">${DB.getPaymentMethodIcon(tx.paymentMethod)} ${escapeHtml(tx.paymentMethod)}</span>`
-        : '';
-      item.innerHTML = `
-        <div class="history-main">
-          <div class="history-top">
-            <span class="history-category" style="background:${badgeBg};color:${badgeText}">${escapeHtml(catIcon)} ${escapeHtml(tx.category)}</span>
-            ${paymentBadge}
-            <span class="history-date">${dateStr}</span>
-          </div>
-          <div class="history-note">${escapeHtml(tx.note || tx.rawText || '（無備註）')}</div>
-        </div>
-        <div class="history-amount ${amountClass}">${sign}${escapeHtml(currency)} ${Number(tx.amount).toLocaleString()}</div>
-        <div class="history-actions">
-          <button class="history-edit" aria-label="編輯">✎</button>
-          <button class="history-delete" aria-label="刪除">✕</button>
-        </div>
-      `;
-      item.querySelector('.history-edit').addEventListener('click', () => {
-        state.editingTxId = tx.id;
-        openConfirmForm({
-          type: tx.type,
-          amount: tx.amount,
-          category: tx.category,
-          note: tx.note,
-          rawText: tx.rawText,
-          timestamp: tx.timestamp,
-          paymentMethod: tx.paymentMethod,
-          bookId: tx.bookId
-        });
-        switchTab('record');
-      });
-      item.querySelector('.history-delete').addEventListener('click', () => {
-        if (confirm('確定刪除這筆紀錄？')) {
-          DB.deleteTransaction(tx.id);
-          renderHistory();
-          if (document.getElementById('tab-stats').classList.contains('active')) renderStats();
-        }
-      });
-      el.historyList.appendChild(item);
+      const d = new Date(tx.timestamp);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      let group = groupByKey.get(key);
+      if (!group) {
+        group = { key, label: `${d.getFullYear()}年${d.getMonth() + 1}月`, items: [], income: 0, expense: 0 };
+        groupByKey.set(key, group);
+        groups.push(group);
+      }
+      group.items.push(tx);
+      if (tx.type === 'income') group.income += tx.amount; else group.expense += tx.amount;
     });
+
+    groups.forEach((group, index) => {
+      const collapsed = query ? false : (state.monthCollapsed[group.key] != null ? state.monthCollapsed[group.key] : index !== 0);
+      const groupEl = document.createElement('li');
+      groupEl.className = 'history-month-group';
+      const net = group.income - group.expense;
+      const netClass = net >= 0 ? 'income' : 'expense';
+      const netSign = net >= 0 ? '+' : '−';
+      const header = document.createElement('button');
+      header.type = 'button';
+      header.className = 'history-month-header';
+      header.setAttribute('aria-expanded', String(!collapsed));
+      header.innerHTML = `
+        <span class="history-month-caret">${collapsed ? '▸' : '▾'}</span>
+        <span class="history-month-label">${escapeHtml(group.label)}</span>
+        <span class="history-month-count">${group.items.length} 筆</span>
+        <span class="history-month-net ${netClass}">${netSign}${escapeHtml(currency)} ${Math.abs(net).toLocaleString()}</span>
+      `;
+      const itemsList = document.createElement('ul');
+      itemsList.className = 'history-month-items' + (collapsed ? ' collapsed' : '');
+      group.items.forEach(tx => itemsList.appendChild(buildHistoryItem(tx, currency)));
+      header.addEventListener('click', () => {
+        const nowCollapsed = !itemsList.classList.contains('collapsed');
+        itemsList.classList.toggle('collapsed', nowCollapsed);
+        state.monthCollapsed[group.key] = nowCollapsed;
+        header.querySelector('.history-month-caret').textContent = nowCollapsed ? '▸' : '▾';
+        header.setAttribute('aria-expanded', String(!nowCollapsed));
+      });
+      groupEl.appendChild(header);
+      groupEl.appendChild(itemsList);
+      el.historyList.appendChild(groupEl);
+    });
+  }
+
+  function buildHistoryItem(tx, currency) {
+    const item = document.createElement('li');
+    item.className = 'history-item';
+    const date = new Date(tx.timestamp);
+    const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    const badgeBg = getCategoryColor(tx.category) + '22';
+    const badgeText = getCategoryTextColor(tx.category);
+    const catIcon = DB.getCategoryIcon(tx.category);
+    const sign = tx.type === 'income' ? '+' : '−';
+    const amountClass = tx.type === 'income' ? 'income' : 'expense';
+    const paymentBadge = tx.paymentMethod
+      ? `<span class="history-payment">${DB.getPaymentMethodIcon(tx.paymentMethod)} ${escapeHtml(tx.paymentMethod)}</span>`
+      : '';
+    item.innerHTML = `
+      <div class="history-main">
+        <div class="history-top">
+          <span class="history-category" style="background:${badgeBg};color:${badgeText}">${escapeHtml(catIcon)} ${escapeHtml(tx.category)}</span>
+          ${paymentBadge}
+          <span class="history-date">${dateStr}</span>
+        </div>
+        <div class="history-note">${escapeHtml(tx.note || tx.rawText || '（無備註）')}</div>
+      </div>
+      <div class="history-amount ${amountClass}">${sign}${escapeHtml(currency)} ${Number(tx.amount).toLocaleString()}</div>
+      <div class="history-actions">
+        <button class="history-edit" aria-label="編輯">✎</button>
+        <button class="history-delete" aria-label="刪除">✕</button>
+      </div>
+    `;
+    item.querySelector('.history-edit').addEventListener('click', () => {
+      state.editingTxId = tx.id;
+      openConfirmForm({
+        type: tx.type,
+        amount: tx.amount,
+        category: tx.category,
+        note: tx.note,
+        rawText: tx.rawText,
+        timestamp: tx.timestamp,
+        paymentMethod: tx.paymentMethod,
+        bookId: tx.bookId
+      });
+      switchTab('record');
+    });
+    item.querySelector('.history-delete').addEventListener('click', () => {
+      if (confirm('確定刪除這筆紀錄？')) {
+        DB.deleteTransaction(tx.id);
+        renderHistory();
+        if (document.getElementById('tab-stats').classList.contains('active')) renderStats();
+      }
+    });
+    return item;
   }
 
   // ---------- Stats tab ----------
