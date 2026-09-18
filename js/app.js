@@ -66,6 +66,7 @@
     ensureCurrentBook();
     DB.applyDueRecurrings();
     renderAll();
+    handleShortcutEntry();
     registerServiceWorker();
   }
 
@@ -75,6 +76,50 @@
     if (!current && books.length > 0) {
       DB.setCurrentBookId(books[0].id);
     }
+  }
+
+  // 接收 iPhone「捷徑」帶進來的聽寫或收據 OCR 文字，沿用既有確認表單。
+  // 這裡刻意不呼叫 saveTransaction()：網址只能預填，必須由使用者按下儲存。
+  function handleShortcutEntry() {
+    const request = getShortcutRequest(window.location.search, window.location.hash);
+    if (!request) return;
+
+    if (!DB.getCurrentBookId()) {
+      alert('已收到捷徑內容，但目前沒有帳本。請先建立帳本，再重新執行捷徑。');
+      switchTab('books');
+      return;
+    }
+
+    const isReceipt = request.mode === 'receipt';
+    const parsed = isReceipt ? parseReceiptText(request.text) : parseSpeechText(request.text);
+    state.editingTxId = null;
+    state.pendingType = parsed.type;
+    setActiveTypeBtn(el.typeToggle, parsed.type);
+    switchTab('record');
+    openConfirmForm(Object.assign({}, parsed, { rawText: request.text }));
+    el.confirmFormTitle.textContent = isReceipt ? '確認收據記帳' : '確認捷徑記帳';
+    el.micStatus.textContent = isReceipt && parsed.amount == null
+      ? '未能確認收據總金額，請手動填寫並檢查其他欄位'
+      : '已從 iPhone 捷徑帶入，確認內容後再儲存';
+    el.transcript.textContent = isReceipt
+      ? `收據：${parsed.note || '已辨識'}`
+      : request.text;
+    clearShortcutParams();
+  }
+
+  // 成功帶入後移除一次性參數，避免重新整理或返回頁面時再次彈出相同表單。
+  function clearShortcutParams() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('shortcut');
+    url.searchParams.delete('text');
+    const fragmentParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+    if (fragmentParams.has('shortcut')) {
+      fragmentParams.delete('shortcut');
+      fragmentParams.delete('text');
+      url.hash = fragmentParams.toString() ? `#${fragmentParams.toString()}` : '';
+    }
+    const cleanUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(null, '', cleanUrl);
   }
 
   function switchTab(tab) {

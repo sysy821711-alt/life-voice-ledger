@@ -84,6 +84,145 @@ function parseSpeechText(text) {
   return { type: 'expense', amount, category: expenseCategory || '其他', note };
 }
 
+const RECEIPT_TOTAL_PATTERNS = [
+  /實付金額|應付金額|交易金額|支付金額/i,
+  /總計|合計|總額/i,
+  /grand\s*total|amount\s*due|total\s*amount|\btotal\b/i
+];
+const RECEIPT_NON_TOTAL_PATTERN = /小計|折扣|找零|稅額|服務費|subtotal|discount|change|tax/i;
+const RECEIPT_MERCHANT_SKIP_PATTERN = /電子發票|統一發票|發票號碼|交易明細|消費明細|收據|invoice|receipt|統一編號|日期|時間|店號|機號|感謝光臨|謝謝惠顧/i;
+
+function receiptLines(text) {
+  return (text || '')
+    .split(/\r?\n/)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+function numbersInLine(line) {
+  const matches = (line || '').match(/-?[0-9][0-9,]*(?:\.[0-9]+)?/g) || [];
+  return matches
+    .map(value => Number(value.replace(/,/g, '')))
+    .filter(value => Number.isFinite(value) && value > 0);
+}
+
+// 收據上常有發票號碼、日期、品項數量、小計與稅額；不能像口述記帳一樣拿第一個數字。
+// 先找「實付／總計」附近的最後一個數字，找不到時才退回有貨幣符號或「元」的最大值。
+function extractReceiptAmount(text) {
+  const lines = receiptLines(text);
+  for (const pattern of RECEIPT_TOTAL_PATTERNS) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!pattern.test(line) || RECEIPT_NON_TOTAL_PATTERN.test(line)) continue;
+      const sameLine = numbersInLine(line);
+      if (sameLine.length) return sameLine[sameLine.length - 1];
+      const nextLine = numbersInLine(lines[i + 1] || '');
+      if (nextLine.length) return nextLine[nextLine.length - 1];
+    }
+  }
+
+  const currencyCandidates = [];
+  const currencyPattern = /(?:NT\$|NTD|TWD|\$|＄)\s*([0-9][0-9,]*(?:\.[0-9]+)?)|([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:元|圓)/gi;
+  for (const match of (text || '').matchAll(currencyPattern)) {
+    const value = Number((match[1] || match[2]).replace(/,/g, ''));
+    if (Number.isFinite(value) && value > 0) currencyCandidates.push(value);
+  }
+  return currencyCandidates.length ? Math.max(...currencyCandidates) : null;
+}
+
+function guessReceiptMerchant(text) {
+  const lines = receiptLines(text);
+  return lines.find(line => {
+    if (line.length < 2 || line.length > 60) return false;
+    if (RECEIPT_MERCHANT_SKIP_PATTERN.test(line)) return false;
+    if (RECEIPT_TOTAL_PATTERNS.some(pattern => pattern.test(line))) return false;
+    if (!/[\p{L}\p{Script=Han}]/u.test(line)) return false;
+    return true;
+  }) || '';
+}
+
+function parseReceiptTimestamp(text) {
+  const match = (text || '').match(/(?:民國\s*)?(\d{2,4})\s*[年\/\-.]\s*(\d{1,2})\s*[月\/\-.]\s*(\d{1,2})\s*日?/);
+  if (!match) return undefined;
+
+  let year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 100) year += 2000;
+  else if (year < 1911) year += 1911;
+
+  const timeMatch = (text || '').match(/(?:時間|交易時間)?\s*(\d{1,2}):([0-5]\d)/);
+  const hour = timeMatch ? Number(timeMatch[1]) : 12;
+  const minute = timeMatch ? Number(timeMatch[2]) : 0;
+  const date = new Date(year, month - 1, day, hour, minute);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    hour > 23
+  ) return undefined;
+  return date.getTime();
+}
+
+function guessReceiptPaymentMethod(text) {
+  const lower = (text || '').toLowerCase();
+  const methods = DB.getPaymentMethods ? DB.getPaymentMethods() : [];
+  const direct = methods.find(method => lower.includes(method.name.toLowerCase()));
+  if (direct) return direct.name;
+
+  const aliases = [
+    { name: 'Apple Pay', words: ['apple pay'] },
+    { name: 'Line Pay', words: ['line pay', 'linepay'] },
+    { name: '悠遊卡', words: ['悠遊卡', 'easycard'] },
+    { name: '金融卡', words: ['金融卡', 'debit'] },
+    { name: '信用卡', words: ['信用卡', 'visa', 'mastercard', 'master card', 'jcb', 'amex', '卡號'] },
+    { name: '現金', words: ['現金', 'cash'] },
+    { name: '銀行轉帳', words: ['銀行轉帳', '轉帳'] }
+  ];
+  const matched = aliases.find(alias => alias.words.some(word => lower.includes(word.toLowerCase())));
+  if (!matched) return null;
+  const available = methods.find(method => method.name === matched.name);
+  return available ? available.name : null;
+}
+
+function parseReceiptText(text) {
+  const trimmed = (text || '').trim();
+  const merchant = guessReceiptMerchant(trimmed);
+  const customCategory = guessCustomCategory(trimmed, 'expense');
+  let category = customCategory || guessFromKeywords(trimmed, EXPENSE_CATEGORY_KEYWORDS, EXPENSE_MATCH_ORDER);
+  if (!category && /全聯|家樂福|好市多|costco|便利商店|7-11|統一超商|全家|萊爾富|ok mart|寶雅/i.test(trimmed)) {
+    category = '購物';
+  }
+  return {
+    type: 'expense',
+    amount: extractReceiptAmount(trimmed),
+    category: category || '其他',
+    note: merchant || '收據',
+    timestamp: parseReceiptTimestamp(trimmed),
+    paymentMethod: guessReceiptPaymentMethod(trimmed)
+  };
+}
+
+// iPhone「捷徑」支援口述模式（shortcut=1）與收據 OCR 模式（shortcut=receipt）。
+// 收據建議放在 URL fragment（#shortcut=...），fragment 不會隨網頁請求送到主機。
+function getShortcutRequest(search, hash) {
+  const sources = [search || '', (hash || '').replace(/^#/, '')];
+  for (const source of sources) {
+    const params = new URLSearchParams(source);
+    const shortcut = params.get('shortcut');
+    if (shortcut !== '1' && shortcut !== 'receipt') continue;
+    const text = (params.get('text') || '').trim();
+    if (!text) continue;
+    return { mode: shortcut === 'receipt' ? 'receipt' : 'voice', text };
+  }
+  return null;
+}
+
+function getShortcutText(search) {
+  const request = getShortcutRequest(search);
+  return request && request.mode === 'voice' ? request.text : '';
+}
+
 const Speech = (() => {
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
   const isSupported = !!SpeechRecognitionCtor;
