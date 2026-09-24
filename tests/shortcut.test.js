@@ -121,8 +121,16 @@ test('簡訊帳單的備註會標明電話號碼，號碼不會被誤判成日�
   const parsed = parseReceiptText('中華電信通知您：115年\n08月0939006086 帳單\n165元，已於09月22日繳訖');
   assert.equal(parsed.note, '中華電信 電話 0939006086');
   assert.equal(parsed.amount, 165);
-  assert.equal(parsed.timestamp, undefined);
   assert.equal(parseReceiptText('全聯福利中心\n總計 168').note, '全聯福利中心');
+});
+
+test('簡訊裡沒有年份的繳費日會自動帶入，跨年時年份加一', () => {
+  const { parseReceiptText } = loadSpeech();
+  const paid = new Date(parseReceiptText('中華電信通知您：115年\n08月0939006086 帳單\n165元，已於09月22日繳訖').timestamp);
+  assert.deepEqual([paid.getFullYear(), paid.getMonth(), paid.getDate()], [2026, 8, 22]);
+
+  const crossYear = new Date(parseReceiptText('114年12月帳單 300元，已於01月05日繳訖').timestamp);
+  assert.deepEqual([crossYear.getFullYear(), crossYear.getMonth(), crossYear.getDate()], [2026, 0, 5]);
 });
 
 test('捷徑入口只開啟確認表單，不直接寫入交易', () => {

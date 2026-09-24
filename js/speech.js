@@ -154,17 +154,41 @@ function receiptNote(merchant, phone) {
   return `${name ? `${name} ` : ''}電話 ${phone}`;
 }
 
+function toReceiptYear(value) {
+  const year = Number(value);
+  if (year < 100) return year + 2000;
+  return year < 1911 ? year + 1911 : year;
+}
+
+// 簡訊常寫「已於09月22日繳訖」這種沒有年份的繳費日。年份取帳單上的年份，沒有就用今年；
+// 繳費月份比帳單月份早代表跨年（例如 12 月帳單、隔年 1 月繳）。
+function parsePaidDate(text) {
+  const match = (text || '').match(/(?:已於|繳費日|繳款日|繳納日|扣款日)\s*[:：]?\s*(?:(\d{2,4})\s*年\s*)?(\d{1,2})\s*月\s*(\d{1,2})(?!\d)\s*日/);
+  if (!match) return undefined;
+
+  const month = Number(match[2]);
+  let year;
+  if (match[1]) {
+    year = toReceiptYear(match[1]);
+  } else {
+    const bill = text.match(/(\d{2,4})\s*年\s*(\d{1,2})\s*月/);
+    year = bill ? toReceiptYear(bill[1]) : new Date().getFullYear();
+    if (bill && month < Number(bill[2])) year += 1;
+  }
+  return buildReceiptDate(text, year, month, Number(match[3]));
+}
+
 function parseReceiptTimestamp(text) {
+  const paid = parsePaidDate(text);
+  if (paid !== undefined) return paid;
+
   // 日的後面不能緊接數字，否則「08月0939006086」會把電話號碼前兩碼 09 當成日期
   const match = (text || '').match(/(?:民國\s*)?(\d{2,4})\s*[年\/\-.]\s*(\d{1,2})\s*[月\/\-.]\s*(\d{1,2})(?!\d)\s*日?/);
   if (!match) return undefined;
+  return buildReceiptDate(text, toReceiptYear(match[1]), Number(match[2]), Number(match[3]));
+}
 
-  let year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (year < 100) year += 2000;
-  else if (year < 1911) year += 1911;
-
+function buildReceiptDate(text, year, month, day) {
   const timeMatch = (text || '').match(/(?:時間|交易時間)?\s*(\d{1,2}):([0-5]\d)/);
   const hour = timeMatch ? Number(timeMatch[1]) : 12;
   const minute = timeMatch ? Number(timeMatch[2]) : 0;
