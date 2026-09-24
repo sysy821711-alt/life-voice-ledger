@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voice-ledger-v32';
+const CACHE_NAME = 'voice-ledger-v33';
 const APP_SHELL = [
   './',
   './index.html',
@@ -22,7 +22,9 @@ const OPTIONAL_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      await cache.addAll(APP_SHELL);
+      // cache:'reload' 略過瀏覽器 HTTP 快取。GitHub Pages 的檔案有 max-age，沒略過的話，
+      // 新版本安裝時可能從 HTTP 快取拿到剛剛才抓過的舊 js，之後就一直吃到舊程式。
+      await cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: 'reload' })));
       await Promise.all(OPTIONAL_SHELL.map((url) => cache.add(url).catch(() => {})));
     })
   );
