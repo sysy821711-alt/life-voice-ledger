@@ -25,7 +25,7 @@
       'book-select', 'mic-btn', 'mic-status', 'transcript', 'manual-entry-link', 'mic-area', 'record-mode-toggle',
       'confirm-form', 'confirm-book-select', 'amount-input', 'category-chips', 'payment-chips', 'payment-chips-label', 'note-input',
       'save-expense-btn', 'cancel-expense-btn', 'record-empty-state', 'record-main',
-      'history-list', 'history-empty', 'history-search-input', 'stats-book-select',
+      'history-list', 'history-empty', 'history-search-input', 'paste-receipt-link', 'stats-book-select',
       'stats-period-type-toggle', 'period-prev-btn', 'period-next-btn', 'period-label', 'export-period-excel-btn',
       'summary-table', 'income-table', 'income-pie-chart', 'income-pie-legend',
       'expense-table', 'payment-table', 'budget-card', 'budget-card-title',
@@ -92,6 +92,11 @@
       return;
     }
 
+    openShortcutForm(request);
+    clearShortcutParams();
+  }
+
+  function openShortcutForm(request) {
     const isReceipt = request.mode === 'receipt';
     const parsed = isReceipt ? parseReceiptText(request.text) : parseSpeechText(request.text);
     state.editingTxId = null;
@@ -106,7 +111,6 @@
     el.transcript.textContent = isReceipt
       ? `收據：${parsed.note || '已辨識'}`
       : request.text;
-    clearShortcutParams();
   }
 
   // 成功帶入後移除一次性參數，避免重新整理或返回頁面時再次彈出相同表單。
@@ -263,6 +267,11 @@
       renderRecordTab();
     });
 
+    el.pasteReceiptLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      pasteReceiptText();
+    });
+
     el.micBtn.addEventListener('click', toggleListening);
     el.manualEntryLink.addEventListener('click', (e) => {
       e.preventDefault();
@@ -286,6 +295,26 @@
       DB.setCurrentBookId(el.bookSelect.value || null);
       renderAll();
     });
+  }
+
+  // 捷徑只能開 Safari，資料不會進主畫面圖示；所以捷徑把辨識文字複製到剪貼簿，這裡再貼進主畫面的 App。
+  async function pasteReceiptText() {
+    if (!DB.getCurrentBookId()) {
+      alert('請先建立並選擇一個帳本');
+      return;
+    }
+    let text = '';
+    try {
+      text = await navigator.clipboard.readText();
+    } catch (err) {
+      text = window.prompt('請貼上收據或簡訊辨識出的文字') || '';
+    }
+    text = text.trim();
+    if (!text) {
+      alert('剪貼簿裡沒有文字，請先用「收據」捷徑辨識並複製');
+      return;
+    }
+    openShortcutForm({ mode: 'receipt', text });
   }
 
   function toggleListening() {
