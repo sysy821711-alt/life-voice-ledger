@@ -141,8 +141,22 @@ function guessReceiptMerchant(text) {
   }) || '';
 }
 
+// 電信帳單等簡訊會把電話號碼夾在文字裡，抓出來寫進備註才看得出是哪一支號碼。
+// 手機號碼可帶或不帶連字號；市話一定要有連字號，避免把發票號碼之類的長數字誤認成電話。
+function extractPhoneNumber(text) {
+  const match = (text || '').match(/(?:^|\D)(09\d{2}-?\d{3}-?\d{3}|0[2-8]-\d{6,8})(?!\d)/);
+  return match ? match[1] : '';
+}
+
+function receiptNote(merchant, phone) {
+  if (!phone) return merchant || '收據';
+  const name = (merchant || '').split(/通知您|提醒您|[:：]/)[0].trim();
+  return `${name ? `${name} ` : ''}電話 ${phone}`;
+}
+
 function parseReceiptTimestamp(text) {
-  const match = (text || '').match(/(?:民國\s*)?(\d{2,4})\s*[年\/\-.]\s*(\d{1,2})\s*[月\/\-.]\s*(\d{1,2})\s*日?/);
+  // 日的後面不能緊接數字，否則「08月0939006086」會把電話號碼前兩碼 09 當成日期
+  const match = (text || '').match(/(?:民國\s*)?(\d{2,4})\s*[年\/\-.]\s*(\d{1,2})\s*[月\/\-.]\s*(\d{1,2})(?!\d)\s*日?/);
   if (!match) return undefined;
 
   let year = Number(match[1]);
@@ -197,7 +211,7 @@ function parseReceiptText(text) {
     type: 'expense',
     amount: extractReceiptAmount(trimmed),
     category: category || '其他',
-    note: merchant || '收據',
+    note: receiptNote(merchant, extractPhoneNumber(trimmed)),
     timestamp: parseReceiptTimestamp(trimmed),
     paymentMethod: guessReceiptPaymentMethod(trimmed)
   };
