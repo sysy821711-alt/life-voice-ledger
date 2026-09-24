@@ -124,6 +124,13 @@ test('簡訊帳單的備註會標明電話號碼，號碼不會被誤判成日�
   assert.equal(parseReceiptText('全聯福利中心\n總計 168').note, '全聯福利中心');
 });
 
+test('簡訊截圖最上面的「今天上午 9:14」這類時間標題不會被當成店名', () => {
+  const { parseReceiptText } = loadSpeech();
+  const body = '中華電信通知您：115年\n08月0939006086 帳單\n165元，已於09月22日繳訖';
+  assert.equal(parseReceiptText(`今天上午 9:14\n${body}`).note, '中華電信 電話 0939006086');
+  assert.equal(parseReceiptText(`8月18日週二 上午9:24\n${body}`).note, '中華電信 電話 0939006086');
+});
+
 test('簡訊裡沒有年份的繳費日會自動帶入，跨年時年份加一', () => {
   const { parseReceiptText } = loadSpeech();
   const paid = new Date(parseReceiptText('中華電信通知您：115年\n08月0939006086 帳單\n165元，已於09月22日繳訖').timestamp);

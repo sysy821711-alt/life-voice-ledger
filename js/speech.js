@@ -90,7 +90,7 @@ const RECEIPT_TOTAL_PATTERNS = [
   /grand\s*total|amount\s*due|total\s*amount|\btotal\b/i
 ];
 const RECEIPT_NON_TOTAL_PATTERN = /小計|折扣|找零|稅額|服務費|subtotal|discount|change|tax/i;
-const RECEIPT_MERCHANT_SKIP_PATTERN = /電子發票|統一發票|發票號碼|交易明細|消費明細|收據|invoice|receipt|統一編號|日期|時間|店號|機號|感謝光臨|謝謝惠顧/i;
+const RECEIPT_MERCHANT_SKIP_PATTERN = /電子發票|統一發票|發票號碼|交易明細|消費明細|收據|invoice|receipt|統一編號|日期|時間|店號|機號|感謝光臨|謝謝惠顧|今天|昨天|前天|上午|下午|週[一二三四五六日]|星期[一二三四五六日]|\d{1,2}:\d{2}/i;
 
 function receiptLines(text) {
   return (text || '')
