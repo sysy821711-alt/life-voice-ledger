@@ -250,10 +250,11 @@ const DB = (() => {
     } else if (frequency === 'weekly') {
       d.setDate(d.getDate() + 7);
     } else {
-      // monthly：移到下個月，並夾在該月天數內
+      // monthly／quarterly／yearly：移動 1／3／12 個月，並夾在該月天數內（例如 1/31 → 2/28）
+      const step = frequency === 'yearly' ? 12 : frequency === 'quarterly' ? 3 : 1;
       const targetDay = dayOfMonth || d.getDate();
       d.setDate(1);
-      d.setMonth(d.getMonth() + 1);
+      d.setMonth(d.getMonth() + step);
       const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
       d.setDate(Math.min(targetDay, daysInMonth));
     }

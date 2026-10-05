@@ -745,6 +745,8 @@
       const days = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
       return `每${days[r.weekday || 0]}`;
     }
+    if (r.frequency === 'quarterly') return `每季${r.dayOfMonth || '?'}日`;
+    if (r.frequency === 'yearly') return `每年${Number(String(r.startDate).slice(5, 7))}月${r.dayOfMonth || '?'}日`;
     return `每月${r.dayOfMonth || '?'}日`;
   }
 
@@ -782,8 +784,8 @@
       const frequency = el.recurringFrequencyInput.value;
       const startDate = el.recurringStartInput.value || todayDateStr();
       const startDateObj = new Date(startDate + 'T00:00:00');
-      const dayOfMonth = frequency === 'monthly' ? startDateObj.getDate() : null;
-      const weekday = frequency === 'weekly' ? startDateObj.getDay() : null;
+      const dayOfMonth = ['monthly', 'quarterly', 'yearly'].includes(frequency) ? startDateObj.getDate() : null;
+      const weekday = null;
 
       DB.addRecurring({ bookId, type: state.recurringType, amount, category, note, frequency, dayOfMonth, weekday, startDate, paymentMethod });
       el.recurringForm.reset();
