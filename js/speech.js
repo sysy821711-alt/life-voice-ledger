@@ -270,20 +270,51 @@ function getShortcutText(search) {
 const Speech = (() => {
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
   const isSupported = !!SpeechRecognitionCtor;
-  let recognition = null;
-  let listening = false;
+  // 一輪辨識的收尾不能只靠瀏覽器送 onend：iOS 常在出錯或連續重新開始時不送 onend，
+  // 或 start() 直接丟例外，畫面就會一直卡在「聆聽中」、再按麥克風也沒用。
+  // 所以每一輪都有保底計時：按停止後等不到 onend、或聽太久，就自己收尾並重置狀態。
+  const STOP_GRACE_MS = 1500;
+  const MAX_LISTEN_MS = 20000;
+  let session = null;
 
   function start({ onResult, onEnd, onError, lang }) {
     if (!isSupported) {
       onError && onError(new Error('此瀏覽器不支援語音辨識'));
       return;
     }
-    recognition = new SpeechRecognitionCtor();
-    recognition.lang = lang || 'zh-TW';
-    recognition.continuous = false;
-    recognition.interimResults = true;
+    if (session) session.abandon();
 
-    recognition.onresult = (event) => {
+    const rec = new SpeechRecognitionCtor();
+    rec.lang = lang || 'zh-TW';
+    rec.continuous = false;
+    rec.interimResults = true;
+
+    let timer = null;
+    let lastError = null;
+    let finished = false;
+    const arm = (fn, ms) => {
+      clearTimeout(timer);
+      timer = setTimeout(fn, ms);
+    };
+    const release = () => {
+      finished = true;
+      clearTimeout(timer);
+      if (session && session.rec === rec) session = null;
+    };
+    const finish = () => {
+      if (finished) return;
+      release();
+      onEnd && onEnd();
+      if (lastError) onError && onError(lastError);
+    };
+    const requestStop = () => {
+      if (finished) return;
+      try { rec.stop(); } catch (e) { /* 已經停了 */ }
+      arm(finish, STOP_GRACE_MS);
+    };
+
+    rec.onresult = (event) => {
+      if (finished) return;
       let finalText = '';
       let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -293,25 +324,34 @@ const Speech = (() => {
       }
       onResult && onResult({ finalText, interimText });
     };
-
-    recognition.onerror = (event) => {
-      onError && onError(new Error(event.error || '語音辨識發生錯誤'));
+    rec.onerror = (event) => {
+      if (finished) return;
+      lastError = new Error(event.error || '語音辨識發生錯誤');
+      arm(finish, STOP_GRACE_MS);
     };
+    rec.onend = finish;
 
-    recognition.onend = () => {
-      listening = false;
-      onEnd && onEnd();
+    session = {
+      rec,
+      requestStop,
+      // 被新的一輪取代：不再回呼，只確保舊的辨識器停掉
+      abandon: () => {
+        release();
+        try { rec.abort(); } catch (e) { /* 忽略 */ }
+      }
     };
-
-    listening = true;
-    recognition.start();
-  }
-
-  function stop() {
-    if (recognition && listening) {
-      recognition.stop();
+    arm(requestStop, MAX_LISTEN_MS);
+    try {
+      rec.start();
+    } catch (err) {
+      release();
+      onError && onError(new Error('語音辨識還沒準備好，請再按一次麥克風'));
     }
   }
 
-  return { isSupported, start, stop, isListening: () => listening };
+  function stop() {
+    if (session) session.requestStop();
+  }
+
+  return { isSupported, start, stop, isListening: () => session !== null };
 })();
