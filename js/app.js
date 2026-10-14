@@ -320,9 +320,11 @@
   function toggleListening() {
     if (!Speech.isSupported) return;
     if (Speech.isListening()) {
+      el.micStatus.textContent = '停止中…';
       Speech.stop();
       return;
     }
+    state.recognizedText = '';
     el.transcript.textContent = '';
     el.micStatus.textContent = '聆聽中…請說出收支項目與金額';
     el.micBtn.classList.add('listening');
@@ -345,6 +347,8 @@
           state.editingTxId = null;
           openConfirmForm(Object.assign({}, parsed, { rawText: state.recognizedText }));
           state.recognizedText = '';
+        } else {
+          el.micStatus.textContent = '沒有聽到內容，請再按一次麥克風';
         }
       },
       onError: (err) => {
