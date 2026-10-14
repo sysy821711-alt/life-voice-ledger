@@ -337,9 +337,18 @@
       Speech.stop();
       return;
     }
+    startListening(false);
+  }
+
+  // 第一次被 iOS 中斷（aborted）時自動重試一次；重試還是失敗才請使用者再按。
+  // 開始前先讓輸入框失焦：上一筆確認表單的鍵盤還沒收乾淨時開麥克風，iOS 容易直接中斷。
+  function startListening(isRetry) {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
     state.recognizedText = '';
     el.transcript.textContent = '';
-    el.micStatus.textContent = '聆聽中…請說出收支項目與金額';
+    el.micStatus.textContent = isRetry ? '重新聆聽中…請說出收支項目與金額' : '聆聽中…請說出收支項目與金額';
     el.micBtn.classList.add('listening');
 
     Speech.start({
@@ -365,8 +374,16 @@
         }
       },
       onError: (err) => {
+        if (err.message === 'aborted' && !isRetry && !state.recognizedText) {
+          el.micStatus.textContent = '辨識被中斷了，自動重試中…';
+          setTimeout(() => {
+            if (!Speech.isListening()) startListening(true);
+          }, 700);
+          return;
+        }
         el.micBtn.classList.remove('listening');
-        el.micStatus.textContent = speechErrorMessage(err.message);
+        // 重試是沒有手指點擊觸發的，若再失敗多半也是被中斷，統一提示再按一次
+        el.micStatus.textContent = speechErrorMessage(isRetry ? 'aborted' : err.message);
       }
     });
   }
