@@ -317,6 +317,19 @@
     openShortcutForm({ mode: 'receipt', text });
   }
 
+  // 瀏覽器回報的是英文錯誤碼；多數只是暫時中斷，重按一次就好，不需要叫使用者改手動輸入
+  function speechErrorMessage(code) {
+    switch (code) {
+      case 'aborted': return '辨識被中斷了，請再按一次麥克風';
+      case 'no-speech': return '沒有聽到聲音，請再按一次麥克風';
+      case 'audio-capture': return '抓不到麥克風，請確認沒有其他 App 正在使用';
+      case 'not-allowed':
+      case 'service-not-allowed': return '沒有麥克風或語音辨識的權限，請到 iPhone 設定允許，或改用手動輸入';
+      case 'network': return '網路不穩，語音辨識暫時無法使用，請稍後再試或改用手動輸入';
+      default: return `辨識失敗：${code}，請再按一次麥克風或改用手動輸入`;
+    }
+  }
+
   function toggleListening() {
     if (!Speech.isSupported) return;
     if (Speech.isListening()) {
@@ -353,7 +366,7 @@
       },
       onError: (err) => {
         el.micBtn.classList.remove('listening');
-        el.micStatus.textContent = '辨識失敗：' + err.message + '，請改用手動輸入';
+        el.micStatus.textContent = speechErrorMessage(err.message);
       }
     });
   }

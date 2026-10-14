@@ -275,7 +275,10 @@ const Speech = (() => {
   // 所以每一輪都有保底計時：按停止後等不到 onend、或聽太久，就自己收尾並重置狀態。
   const STOP_GRACE_MS = 1500;
   const MAX_LISTEN_MS = 20000;
+  // iOS 上一輪剛結束就立刻 start()，新的一輪常被系統直接 aborted，所以兩輪之間留一小段間隔
+  const RESTART_GAP_MS = 400;
   let session = null;
+  let lastReleasedAt = 0;
 
   function start({ onResult, onEnd, onError, lang }) {
     if (!isSupported) {
@@ -299,6 +302,7 @@ const Speech = (() => {
     const release = () => {
       finished = true;
       clearTimeout(timer);
+      lastReleasedAt = Date.now();
       if (session && session.rec === rec) session = null;
     };
     const finish = () => {
@@ -340,13 +344,19 @@ const Speech = (() => {
         try { rec.abort(); } catch (e) { /* 忽略 */ }
       }
     };
-    arm(requestStop, MAX_LISTEN_MS);
-    try {
-      rec.start();
-    } catch (err) {
-      release();
-      onError && onError(new Error('語音辨識還沒準備好，請再按一次麥克風'));
-    }
+    const begin = () => {
+      if (finished) return;
+      arm(requestStop, MAX_LISTEN_MS);
+      try {
+        rec.start();
+      } catch (err) {
+        release();
+        onError && onError(new Error('語音辨識還沒準備好，請再按一次麥克風'));
+      }
+    };
+    const wait = Math.max(0, RESTART_GAP_MS - (Date.now() - lastReleasedAt));
+    if (wait > 0) arm(begin, wait);
+    else begin();
   }
 
   function stop() {

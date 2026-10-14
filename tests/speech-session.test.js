@@ -100,6 +100,24 @@ test('聽太久沒有結束時會自動停止，不會一直空轉', (t) => {
   assert.deepEqual(calls, [['end']]);
 });
 
+test('上一輪剛結束就再按麥克風，會等一小段間隔才真正開始，避免 iOS 直接 aborted', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { Speech, instances } = loadSpeech();
+  Speech.start(recorder().handlers);
+  instances[0].onend();
+  Speech.start(recorder().handlers);
+  assert.equal(Speech.isListening(), true);
+  assert.equal(instances[1].started, undefined);
+  t.mock.timers.tick(400);
+  assert.equal(instances[1].started, true);
+});
+
+test('間隔過後（久沒用）再按麥克風會立刻開始', () => {
+  const { Speech, instances } = loadSpeech();
+  Speech.start(recorder().handlers);
+  assert.equal(instances[0].started, true);
+});
+
 test('上一輪還沒收乾淨就開始新一輪：舊的被中止，且舊的遲到事件不影響新的一輪', () => {
   const { Speech, instances } = loadSpeech();
   const first = recorder();
