@@ -277,8 +277,14 @@ const Speech = (() => {
   const MAX_LISTEN_MS = 20000;
   // iOS 上一輪剛結束就立刻 start()，新的一輪常被系統直接 aborted，所以兩輪之間留一小段間隔
   const RESTART_GAP_MS = 400;
+  // 啟動後這段時間內連 start／音訊開始／任何結果都沒有，代表這一輪是「假裝在聽」的死 session
+  // （iOS 第二次之後常見），直接判定失敗，不要讓畫面一直轉圈圈到 MAX_LISTEN_MS。
+  const DEAD_SESSION_MS = 6000;
   let session = null;
   let lastReleasedAt = 0;
+  // 上一輪乾淨結束的辨識器留著重複使用：iOS 每次都 new 一個新的，第二筆之後很容易被中斷或沒收到聲音。
+  // 出過錯、被強制收尾的就丟掉重建，避免遲到的舊事件混進下一輪。
+  let reusableRec = null;
 
   function start({ onResult, onEnd, onError, lang }) {
     if (!isSupported) {
@@ -287,12 +293,15 @@ const Speech = (() => {
     }
     if (session) session.abandon();
 
-    const rec = new SpeechRecognitionCtor();
+    const rec = reusableRec || new SpeechRecognitionCtor();
+    reusableRec = null;
     rec.lang = lang || 'zh-TW';
     rec.continuous = false;
     rec.interimResults = true;
 
     let timer = null;
+    let deadTimer = null;
+    let alive = false;
     let lastError = null;
     let finished = false;
     const arm = (fn, ms) => {
@@ -302,12 +311,15 @@ const Speech = (() => {
     const release = () => {
       finished = true;
       clearTimeout(timer);
+      clearTimeout(deadTimer);
       lastReleasedAt = Date.now();
       if (session && session.rec === rec) session = null;
     };
-    const finish = () => {
+    const finish = (clean) => {
       if (finished) return;
       release();
+      if (clean === true && !lastError) reusableRec = rec;
+      else { try { rec.abort(); } catch (e) { /* 忽略 */ } }
       onEnd && onEnd();
       if (lastError) onError && onError(lastError);
     };
@@ -316,9 +328,15 @@ const Speech = (() => {
       try { rec.stop(); } catch (e) { /* 已經停了 */ }
       arm(finish, STOP_GRACE_MS);
     };
+    const markAlive = () => { alive = true; };
 
+    rec.onstart = markAlive;
+    rec.onaudiostart = markAlive;
+    rec.onsoundstart = markAlive;
+    rec.onspeechstart = markAlive;
     rec.onresult = (event) => {
       if (finished) return;
+      alive = true;
       let finalText = '';
       let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -333,7 +351,7 @@ const Speech = (() => {
       lastError = new Error(event.error || '語音辨識發生錯誤');
       arm(finish, STOP_GRACE_MS);
     };
-    rec.onend = finish;
+    rec.onend = () => finish(true);
 
     session = {
       rec,
@@ -352,7 +370,13 @@ const Speech = (() => {
       } catch (err) {
         release();
         onError && onError(new Error('語音辨識還沒準備好，請再按一次麥克風'));
+        return;
       }
+      deadTimer = setTimeout(() => {
+        if (finished || alive) return;
+        lastError = new Error('aborted');
+        finish();
+      }, DEAD_SESSION_MS);
     };
     const wait = Math.max(0, RESTART_GAP_MS - (Date.now() - lastReleasedAt));
     if (wait > 0) arm(begin, wait);
