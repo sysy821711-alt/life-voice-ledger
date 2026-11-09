@@ -99,6 +99,19 @@ const Stats = (() => {
     return rows;
   }
 
+  // 一整年的紀錄依「類別 × 月份」彙總：每個類別一列，含 12 個月與合計。
+  // 類別順序與 categoryBreakdown 一致（已知類別在前、歷史紀錄裡有但已被刪掉的類別附在後面）
+  function categoryByMonth(yearTransactions, txType, categories) {
+    const rows = categoryBreakdown(yearTransactions, txType, categories)
+      .map(r => ({ label: r.label, icon: r.icon, months: new Array(12).fill(0), total: r.value }));
+    const byLabel = new Map(rows.map(r => [r.label, r]));
+    yearTransactions.filter(t => t.type === txType).forEach(t => {
+      const row = byLabel.get(String(t.category));
+      if (row) row.months[new Date(t.timestamp).getMonth()] += t.amount;
+    });
+    return rows;
+  }
+
   // 依付款方式彙總一組收支紀錄裡的「支出」金額（不限期間），沒指定付款方式的歸到「未指定」
   function paymentBreakdown(transactions, paymentMethods) {
     const sums = {};
@@ -141,5 +154,5 @@ const Stats = (() => {
     };
   }
 
-  return { summarize, budgetUsage, summarizePeriod, categoryBreakdown, paymentBreakdown, filterByPeriod };
+  return { summarize, budgetUsage, summarizePeriod, categoryBreakdown, categoryByMonth, paymentBreakdown, filterByPeriod };
 })();
