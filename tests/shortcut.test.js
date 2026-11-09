@@ -62,6 +62,19 @@ test('捷徑文字沿用既有支出與收入解析', () => {
   );
 });
 
+test('備註不留「花了」「共」這類跟金額綁在一起的尾巴，也不把金額帶回備註', () => {
+  const { parseSpeechText } = loadSpeech();
+  const note = (text) => parseSpeechText(text).note;
+  assert.equal(note('午餐吃拉麵花了250元'), '午餐吃拉麵');
+  assert.equal(note('吃拉麵一共花了250元'), '吃拉麵');
+  assert.equal(note('購物共1,184元'), '購物');
+  assert.equal(note('加油用了500元'), '加油');
+  assert.equal(note('停車費付了200'), '停車費');
+  assert.equal(note('買花250元'), '買花');
+  assert.equal(note('250元'), '');
+  assert.equal(parseSpeechText('午餐吃拉麵花了250元').amount, 250);
+});
+
 test('捷徑文字同樣支援使用者自訂類別', () => {
   const { parseSpeechText } = loadSpeech({
     expense: [{ name: '寵物', builtin: false }],
