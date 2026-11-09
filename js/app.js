@@ -820,7 +820,26 @@
       const dayOfMonth = ['monthly', 'quarterly', 'yearly'].includes(frequency) ? startDateObj.getDate() : null;
       const weekday = null;
 
-      DB.addRecurring({ bookId, type: state.recurringType, amount, category, note, frequency, dayOfMonth, weekday, startDate, paymentMethod });
+      // 開始日期是今天或過去：新增當下就把到今天為止應該發生的都補記進紀錄，
+      // 補記前先告訴使用者筆數，避免一次寫進一堆不想要的紀錄
+      const due = DB.dueOccurrenceDates(startDate, frequency, dayOfMonth, weekday);
+      if (due.tooMany) {
+        alert(`從這個開始日期算起要補記超過 ${due.max} 筆，請把開始日期往後改。`);
+        return;
+      }
+      if (due.dates.length > 0 && startDate < todayDateStr()) {
+        const fmt = (d) => d.replace(/-/g, '/');
+        const range = due.dates.length === 1 ? fmt(due.dates[0]) : `${fmt(due.dates[0])} ～ ${fmt(due.dates[due.dates.length - 1])}`;
+        if (!confirm(`開始日期是過去的日期，新增後會立刻補記 ${due.dates.length} 筆（${range}），之後照週期繼續自動新增。\n\n確定要新增嗎？`)) {
+          return;
+        }
+      }
+
+      const recurring = DB.addRecurring({ bookId, type: state.recurringType, amount, category, note, frequency, dayOfMonth, weekday, startDate, paymentMethod });
+      if (due.dates.length > 0) {
+        const added = DB.applyDueRecurrings({ maxCatchUp: due.dates.length, onlyId: recurring.id });
+        if (added > 1) alert(`已新增，並補記 ${added} 筆收支紀錄`);
+      }
       el.recurringForm.reset();
       el.recurringStartInput.value = todayDateStr();
       renderCategoryChips(el.recurringCategoryChips, state.recurringType, category);
