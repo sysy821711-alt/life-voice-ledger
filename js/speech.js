@@ -40,6 +40,10 @@ const CURRENCY_UNIT_WORDS = ['元整', '元', '塊錢', '塊', '圓'];
 // 金額前面常見的貨幣符號（例如口述聽寫常把「元」誤判成 $），一併從備註拿掉
 const CURRENCY_PREFIX_PATTERN = /(?:NT\$|NTD|US\$|\$|＄)\s*$/i;
 
+// 緊貼在金額前面、只是在講「這筆花了多少」的詞（「午餐吃拉麵花了250元」→「午餐吃拉麵」）。
+// 只拿掉結尾貼著金額的部分，且不處理單獨一個「花」，避免誤傷「買花」這類品項。
+const AMOUNT_LEAD_WORDS_PATTERN = /(?:(?:總共|一共|共計|共花|花費了?|花了|付了|刷了|用了|共)\s*)+$/;
+
 // 從語音文字裡抓出金額，同時回傳「拿掉金額數字（含前後貨幣符號／單位）後」的備註文字
 function extractAmountAndNote(text) {
   const trimmed = (text || '').trim();
@@ -48,7 +52,9 @@ function extractAmountAndNote(text) {
   if (!match) {
     return { amount: null, note: trimmed };
   }
-  const before = trimmed.slice(0, match.index).replace(CURRENCY_PREFIX_PATTERN, '');
+  const before = trimmed.slice(0, match.index)
+    .replace(CURRENCY_PREFIX_PATTERN, '')
+    .replace(AMOUNT_LEAD_WORDS_PATTERN, '');
   let after = trimmed.slice(match.index + match[0].length);
   for (const unit of CURRENCY_UNIT_WORDS) {
     if (after.startsWith(unit)) {
@@ -57,7 +63,8 @@ function extractAmountAndNote(text) {
     }
   }
   const note = (before + after).replace(/\s+/g, ' ').trim();
-  return { amount: Number(match[0].replace(/,/g, '')), note: note || trimmed };
+  // 只剩金額時備註留空，不要退回整句（整句會把金額又帶回備註）
+  return { amount: Number(match[0].replace(/,/g, '')), note };
 }
 
 // 使用者自訂類別也直接用「名稱是否出現在原文裡」來比對，讓自訂類別一樣能被語音辨識抓到
