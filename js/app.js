@@ -970,28 +970,10 @@
     return ws;
   }
 
-  // period: { type: 'month'|'year', year, month } 指定只匯出該月／該年；不傳則匯出全部歷史紀錄
-  function exportExcel(period) {
-    if (typeof XLSX === 'undefined') {
-      alert('匯出功能需要先連上網路載入一次所需元件，請確認網路連線後再試一次');
-      return;
-    }
-    const bookId = DB.getCurrentBookId();
-    if (!bookId) {
-      alert('請先建立並選擇一個帳本');
-      return;
-    }
-    const book = DB.getBooks().find(b => b.id === bookId);
-    const bookName = book ? book.name : '帳本';
-    const allTransactions = DB.getTransactionsByBook(bookId).sort((a, b) => a.timestamp - b.timestamp);
-    const transactions = Stats.filterByPeriod(allTransactions, period);
-    if (period && transactions.length === 0) {
-      alert('這個期間沒有任何收支紀錄，無法匯出');
-      return;
-    }
-    const categories = DB.getCategories();
-    const paymentMethods = DB.getPaymentMethods();
+  const MONTH_NAMES = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
 
+  // 一段期間的報表：收支總計、各類別統計、付款方式統計、收入／支出明細，全部疊在同一組列裡
+  function buildPeriodRows(transactions, categories, paymentMethods) {
     const incomeTx = transactions.filter(t => t.type === 'income');
     const expenseTx = transactions.filter(t => t.type !== 'income');
     const income = incomeTx.reduce((s, t) => s + t.amount, 0);
@@ -1045,9 +1027,95 @@
     addSection('付款方式統計', paymentStatRows);
     addSection('收入明細', incomeRows);
     addSection('支出明細', expenseRows);
+    return rows;
+  }
 
+  // 年度總表：每一年一個區塊，列出「類別 × 一月～十二月」的收入／支出統計與每月收支總計
+  function buildYearlyRows(transactions, categories) {
+    const years = [...new Set(transactions.map(t => new Date(t.timestamp).getFullYear()))].sort((a, b) => a - b);
+    const header = ['類別', ...MONTH_NAMES, '合計'];
+    const sum = (list) => list.reduce((s, v) => s + v, 0);
+    const rows = [];
+    years.forEach((year, i) => {
+      const yearTx = Stats.filterByPeriod(transactions, { type: 'year', year });
+      const monthlyTotals = (isIncome) => {
+        const totals = new Array(12).fill(0);
+        yearTx.filter(t => (t.type === 'income') === isIncome).forEach(t => { totals[new Date(t.timestamp).getMonth()] += t.amount; });
+        return totals;
+      };
+      const incomeByMonth = monthlyTotals(true);
+      const expenseByMonth = monthlyTotals(false);
+      const netByMonth = incomeByMonth.map((v, m) => v - expenseByMonth[m]);
+      const categoryTable = (type, totalLabel, totals) => [
+        header,
+        ...Stats.categoryByMonth(yearTx, type, categories).map(r => [`${r.icon} ${r.label}`, ...r.months, r.total]),
+        [totalLabel, ...totals, sum(totals)]
+      ];
+      const addSection = (title, sectionRows) => {
+        rows.push([title]);
+        sectionRows.forEach(r => rows.push(r));
+        rows.push([]);
+      };
+      rows.push([`${year}年`]);
+      rows.push([]);
+      addSection('收支總計', [
+        header,
+        ['收入總計', ...incomeByMonth, sum(incomeByMonth)],
+        ['支出總計', ...expenseByMonth, sum(expenseByMonth)],
+        ['總計', ...netByMonth, sum(netByMonth)]
+      ]);
+      addSection('收入統計', categoryTable('income', '收入總計', incomeByMonth));
+      addSection('支出統計', categoryTable('expense', '支出總計', expenseByMonth));
+      if (i < years.length - 1) rows.push([]);
+    });
+    return rows;
+  }
+
+  // period: { type: 'month'|'year', year, month } 指定只匯出該月／該年；不傳則匯出全部歷史紀錄
+  function exportExcel(period) {
+    if (typeof XLSX === 'undefined') {
+      alert('匯出功能需要先連上網路載入一次所需元件，請確認網路連線後再試一次');
+      return;
+    }
+    const bookId = DB.getCurrentBookId();
+    if (!bookId) {
+      alert('請先建立並選擇一個帳本');
+      return;
+    }
+    const book = DB.getBooks().find(b => b.id === bookId);
+    const bookName = book ? book.name : '帳本';
+    const allTransactions = DB.getTransactionsByBook(bookId).sort((a, b) => a.timestamp - b.timestamp);
+    const transactions = Stats.filterByPeriod(allTransactions, period);
+    if (period && transactions.length === 0) {
+      alert('這個期間沒有任何收支紀錄，無法匯出');
+      return;
+    }
+    const categories = DB.getCategories();
+    const paymentMethods = DB.getPaymentMethods();
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, sheetFromRows(rows), '收支統計');
+
+    if (period) {
+      // 單月／單年：全部表格疊在同一個工作表
+      XLSX.utils.book_append_sheet(wb, sheetFromRows(buildPeriodRows(transactions, categories, paymentMethods)), '收支統計');
+    } else {
+      if (transactions.length === 0) {
+        alert('目前沒有任何收支紀錄，無法匯出');
+        return;
+      }
+      // 全部：第一頁是年度總表，之後每個「有紀錄的月份」各一個分頁（依時間由早到晚）
+      XLSX.utils.book_append_sheet(wb, sheetFromRows(buildYearlyRows(transactions, categories)), '年度總表');
+      const byMonth = new Map();
+      transactions.forEach(t => {
+        const d = new Date(t.timestamp);
+        const key = d.getFullYear() * 100 + d.getMonth();
+        if (!byMonth.has(key)) byMonth.set(key, { year: d.getFullYear(), month: d.getMonth(), list: [] });
+        byMonth.get(key).list.push(t);
+      });
+      [...byMonth.keys()].sort((a, b) => a - b).forEach(key => {
+        const { year, month, list } = byMonth.get(key);
+        XLSX.utils.book_append_sheet(wb, sheetFromRows(buildPeriodRows(list, categories, paymentMethods)), `${year}年${month + 1}月`);
+      });
+    }
     XLSX.writeFile(wb, `${bookName}-${periodLabelFor(period)}收支統計-${todayStamp()}.xlsx`);
   }
 
