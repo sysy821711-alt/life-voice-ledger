@@ -300,7 +300,23 @@ const DB = (() => {
   // 檢查所有啟用中的定期收支，把到期（含補記過去錯過的）的項目自動新增為收支紀錄
   // 回傳新增的紀錄數
   const MAX_CATCH_UP = 24; // 避免長時間沒開 App 時一次補太多筆
-  function applyDueRecurrings() {
+  // 新增時選過去的開始日期，一次最多補記這麼多筆（超過就請使用者把開始日期往後改）
+  const MAX_BACKFILL = 400;
+
+  // 從開始日期一路算到今天，列出每一個「應該已經發生」的日期（含今天）
+  function dueOccurrenceDates(startDate, frequency, dayOfMonth, weekday) {
+    const todayStr = toDateStr(new Date());
+    const dates = [];
+    let date = startDate;
+    while (date <= todayStr && dates.length <= MAX_BACKFILL) {
+      dates.push(date);
+      date = computeNextDate(date, frequency, dayOfMonth, weekday);
+    }
+    return { dates: dates.slice(0, MAX_BACKFILL), tooMany: dates.length > MAX_BACKFILL, max: MAX_BACKFILL };
+  }
+
+  // maxCatchUp：每個項目這次最多補幾筆；onlyId：只處理指定的那一個項目
+  function applyDueRecurrings({ maxCatchUp = MAX_CATCH_UP, onlyId } = {}) {
     const recurrings = getRecurringsRaw();
     const transactions = getTransactions();
     const occurrenceKeys = new Set(transactions.map(t => t.recurringOccurrenceKey).filter(Boolean));
@@ -309,9 +325,9 @@ const DB = (() => {
     let changed = false;
 
     recurrings.forEach(r => {
-      if (!r.active) return;
+      if (!r.active || (onlyId && r.id !== onlyId)) return;
       let guard = 0;
-      while (r.nextDate <= todayStr && guard < MAX_CATCH_UP) {
+      while (r.nextDate <= todayStr && guard < maxCatchUp) {
         const occurrenceKey = `${r.id}:${r.nextDate}`;
         if (!occurrenceKeys.has(occurrenceKey)) {
           transactions.push({
@@ -575,7 +591,7 @@ const DB = (() => {
     getCurrentBookId, setCurrentBookId,
     getTransactions, addTransaction, updateTransaction, deleteTransaction, getTransactionsByBook,
     getBudgets, setBudget,
-    getRecurrings, addRecurring, updateRecurring, deleteRecurring, applyDueRecurrings,
+    getRecurrings, addRecurring, updateRecurring, deleteRecurring, applyDueRecurrings, dueOccurrenceDates,
     getCategories, getCategoryIcon, addCategory, deleteCategory, updateCategory,
     getPaymentMethods, getPaymentMethodIcon, addPaymentMethod, deletePaymentMethod, updatePaymentMethod,
     getRecordMode, setRecordMode,
