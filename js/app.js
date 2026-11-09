@@ -475,7 +475,6 @@
     }
 
     el.micBtn.classList.toggle('hidden', !Speech.isSupported);
-    el.dictationArea.classList.toggle('hidden', Speech.isSupported);
   }
 
   function populateBookSelect(selectEl, books, currentId) {
